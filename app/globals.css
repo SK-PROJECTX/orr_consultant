@@ -17,6 +17,40 @@
   --color-surface-hover: #0E2441;
 }
 
+:root.dark {
+  /* Darker charcoal variant */
+  --color-background: #191919;
+  --color-foreground: #ffffff;
+  --color-primary: #0ec277;
+  --color-secondary: #393939;
+  --color-lemon: #13be77;
+  --color-green: #0ec277;
+  --color-card: #2c2c2c;
+  --color-card-light: #3a3a3a;
+  --gradient-primary: linear-gradient(135deg, #28b026, #03f6ca);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-input-bg: #262626;
+  --color-surface: #121212;
+  --color-surface-hover: #1e1e1e;
+}
+
+:root.light {
+  /* Light = original navy dark theme (the app's primary design) */
+  --color-background: #0d223c;
+  --color-foreground: #ffffff;
+  --color-primary: #0EC277;
+  --color-secondary: #35536b;
+  --color-lemon: #13be77;
+  --color-green: #0ec277;
+  --color-card: #204460;
+  --color-card-light: #2D597D;
+  --gradient-primary: linear-gradient(135deg, #28b026, #03f6ca);
+  --color-border: rgba(30, 58, 75, 0.8);
+  --color-input-bg: #0A1F30;
+  --color-surface: #071626;
+  --color-surface-hover: #0E2441;
+}
+
 @theme {
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
@@ -42,6 +76,13 @@ body {
   min-height: 100vh;
 }
 
+.star {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 300px 300px, 400px 400px;
+  background-position: 0 0, 150px 150px;
+}
+
 /* Custom visual utilities matching client design system */
 
 .bg-background {
@@ -61,12 +102,71 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.border-primary {
+  border-color: var(--color-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+
+.bg-lemon {
+  background-color: var(--color-lemon);
+}
+
+.border-lemon {
+  border-color: var(--color-lemon);
+}
+
+.bg-surface {
+  background-color: var(--color-surface);
+}
+
+.border-surface {
+  border-color: var(--color-surface);
+}
+
+.border-secondary {
+  border-color: var(--color-secondary);
+}
+
+.text-foreground {
+  color: var(--color-foreground);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-secondary {
+  color: var(--color-secondary);
+}
+
+.bg-gradient-primary {
+  background-image: var(--gradient-primary);
+}
+
 .glass-panel {
   background-color: color-mix(in srgb, var(--color-card), transparent 45%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+.dark .glass-panel {
+  background-color: rgba(44, 44, 44, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.light .glass-panel {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
 }
 
 /* Glowing border effect matching primary color */
@@ -78,6 +178,14 @@ body {
 
 .glow-border:hover {
   box-shadow: 0 0 25px rgba(14, 194, 119, 0.5), inset 0 0 20px rgba(14, 194, 119, 0.1);
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .star {
+    background-size: 200px 200px, 250px 250px;
+    background-position: 0 0, 100px 100px;
+  }
 }
 
 /* Custom Scrollbar Styles */

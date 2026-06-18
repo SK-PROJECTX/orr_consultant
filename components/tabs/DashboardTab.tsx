@@ -14,8 +14,10 @@ import {
   ChevronRight, 
   Sparkles 
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function DashboardTab() {
+  const { t } = useTranslation();
   const onboardingData = useConsultantStore(state => state.onboardingData);
   const availableJobs = useConsultantStore(state => state.availableJobs);
   const activeJobs = useConsultantStore(state => state.activeJobs);
@@ -42,19 +44,19 @@ export default function DashboardTab() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black bg-primary/20 text-primary border border-primary/30 px-3 py-1 rounded-full uppercase tracking-wider font-mono">
-              Partner Workspace Active
+              {t('dashboard.partnerWorkspaceActive')}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
           </div>
           <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-white">
-            Welcome back, specialist
+            {t('dashboard.welcomeBack')}
           </h1>
           <p className="text-slate-400 text-xs max-w-xl">
-            You are currently authorized for <strong className="text-slate-300 capitalize">{onboardingData?.industry || 'General Consultation'}</strong> scopes. No direct client communication authorized.
+            {t('dashboard.authorizedFor')} <strong className="text-slate-300 capitalize">{onboardingData?.industry || t('dashboard.generalConsultation')}</strong> {t('dashboard.scopesNoDirect')}
           </p>
         </div>
         <div className="text-xs font-mono text-slate-500 bg-slate-950/40 px-4 py-2.5 border border-white/5 rounded-xl">
-          Node Key: <span className="text-slate-300 font-bold">ORR-CONS-{onboardingData?.industry?.substring(0, 3).toUpperCase() || 'GEN'}</span>
+          {t('dashboard.nodeKey')} <span className="text-slate-300 font-bold">ORR-CONS-{onboardingData?.industry?.substring(0, 3).toUpperCase() || 'GEN'}</span>
         </div>
       </div>
 
@@ -63,13 +65,13 @@ export default function DashboardTab() {
         {/* Metric 1 */}
         <div className="p-5 rounded-2xl bg-card border border-white/5 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-primary/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Available Wallet Balance</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('dashboard.availableWalletBalance')}</span>
           <h3 className="text-2xl font-black text-white mt-2">${walletBalance.available.toLocaleString()}</h3>
           <Link 
             href="/wallet"
             className="flex items-center gap-1.5 mt-3 text-[10px] font-bold text-primary hover:text-white transition-colors cursor-pointer"
           >
-            Manage Wallet
+            {t('dashboard.manageWallet')}
             <ArrowUpRight size={12} />
           </Link>
         </div>
@@ -77,21 +79,21 @@ export default function DashboardTab() {
         {/* Metric 2 */}
         <div className="p-5 rounded-2xl bg-card border border-white/5 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-emerald-500/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">In Review / Pending</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('dashboard.inReviewPending')}</span>
           <h3 className="text-2xl font-black text-white mt-2">${pendingInvoicesAmount.toLocaleString()}</h3>
-          <p className="text-[10px] text-slate-400 mt-3 font-semibold">Bi-weekly billing cycle active</p>
+          <p className="text-[10px] text-slate-400 mt-3 font-semibold">{t('dashboard.biWeeklyBilling')}</p>
         </div>
 
         {/* Metric 3 */}
         <div className="p-5 rounded-2xl bg-card border border-white/5 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-cyan-500/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Active Contracts</span>
-          <h3 className="text-2xl font-black text-white mt-2">{activeJobs.length} Scopes</h3>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('dashboard.activeContracts')}</span>
+          <h3 className="text-2xl font-black text-white mt-2">{activeJobs.length} {t('dashboard.scopes')}</h3>
           <Link 
             href="/tasks"
             className="flex items-center gap-1.5 mt-3 text-[10px] font-bold text-cyan-400 hover:text-white transition-colors cursor-pointer"
           >
-            Review Deliverables
+            {t('dashboard.reviewDeliverables')}
             <ChevronRight size={12} />
           </Link>
         </div>
@@ -99,11 +101,11 @@ export default function DashboardTab() {
         {/* Metric 4 */}
         <div className="p-5 rounded-2xl bg-card border border-white/5 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-red-500/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Open Tasks & Deadlines</span>
-          <h3 className="text-2xl font-black text-white mt-2">{activeTasks.length} Pending</h3>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('dashboard.openTasks')}</span>
+          <h3 className="text-2xl font-black text-white mt-2">{activeTasks.length} {t('dashboard.pending')}</h3>
           <p className="text-[10px] text-red-400 mt-3 flex items-center gap-1 font-bold">
             <Clock size={10} className="animate-pulse" />
-            Check milestones schedule
+            {t('dashboard.checkMilestones')}
           </p>
         </div>
       </div>
@@ -116,14 +118,14 @@ export default function DashboardTab() {
           <div className="space-y-4">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <Briefcase size={18} className="text-primary" />
-              Incoming Job Tenders
+              {t('dashboard.incomingJobTenders')}
             </h2>
 
             {availableJobs.length === 0 ? (
               <div className="p-8 text-center bg-slate-900/10 border border-white/5 rounded-2xl space-y-2">
                 <Sparkles size={28} className="text-slate-600 mx-auto animate-pulse" />
-                <h4 className="text-xs font-bold text-slate-400">All broadcasts acknowledged</h4>
-                <p className="text-[10px] text-slate-500">Checking for custom client tenders matching your specialization...</p>
+                <h4 className="text-xs font-bold text-slate-400">{t('dashboard.allBroadcastsAck')}</h4>
+                <p className="text-[10px] text-slate-500">{t('dashboard.checkingTenders')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -152,7 +154,7 @@ export default function DashboardTab() {
                         </div>
                         <div className="text-right flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto border-t border-white/5 sm:border-transparent pt-3 sm:pt-0">
                           <span className="text-xs font-black text-emerald-400 font-mono">{job.rate}</span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">{job.duration} duration</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">{job.duration} {t('dashboard.duration')}</span>
                         </div>
                       </div>
 
@@ -160,14 +162,14 @@ export default function DashboardTab() {
                       {isExpanded && (
                         <div className="p-6 border-t border-white/5 bg-slate-950/20 space-y-6">
                           <div className="space-y-2">
-                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Job Description</span>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('dashboard.jobDescription')}</span>
                             <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-4 border border-white/5 rounded-xl">{job.description}</p>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Scope lists */}
                             <div className="space-y-2.5">
-                              <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Scope of Consultation</span>
+                              <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('dashboard.scopeOfConsultation')}</span>
                               <ul className="space-y-1.5 text-[11px] text-slate-400 leading-relaxed font-semibold">
                                 {job.scope.map((scp, idx) => (
                                   <li key={idx} className="flex gap-2 items-start">
@@ -180,7 +182,7 @@ export default function DashboardTab() {
 
                             {/* Required deliverables */}
                             <div className="space-y-2.5">
-                              <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Deliverables Breakdown</span>
+                              <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('dashboard.deliverablesBreakdown')}</span>
                               <ul className="space-y-1.5 text-[11px] text-slate-400 leading-relaxed font-semibold">
                                 {job.deliverables.map((del, idx) => (
                                   <li key={idx} className="flex gap-2 items-start">
@@ -199,14 +201,14 @@ export default function DashboardTab() {
                               className="flex items-center gap-1 px-4 py-2 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 text-red-400 font-bold text-xs rounded-xl transition cursor-pointer"
                             >
                               <X size={14} />
-                              Decline Tender
+                              {t('dashboard.declineTender')}
                             </button>
                             <button
                               onClick={() => acceptJob(job.id)}
                               className="flex items-center gap-1.5 px-6 py-2.5 bg-primary hover:bg-lemon text-background font-black text-xs rounded-xl transition shadow-lg shadow-primary/10 cursor-pointer"
                             >
                               <Check size={14} />
-                              Accept Contract Scopes
+                              {t('dashboard.acceptContract')}
                             </button>
                           </div>
                         </div>
@@ -222,14 +224,14 @@ export default function DashboardTab() {
           <div className="space-y-4">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <Clock size={18} className="text-primary" />
-              Active Milestone Deadlines
+              {t('dashboard.activeMilestoneDeadlines')}
             </h2>
 
             {activeTasks.length === 0 ? (
               <div className="p-6 text-center bg-slate-900/10 border border-white/5 rounded-2xl">
                 <CheckCircle size={24} className="text-slate-600 mx-auto mb-2 animate-bounce" />
-                <h4 className="text-xs font-bold text-slate-400">All milestone tasks completed</h4>
-                <p className="text-[10px] text-slate-500 mt-1">Accept new job tenders to load project deliverables.</p>
+                <h4 className="text-xs font-bold text-slate-400">{t('dashboard.allMilestonesCompleted')}</h4>
+                <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.acceptNewTenders')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -246,18 +248,18 @@ export default function DashboardTab() {
                           <span className={`text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase ${
                             isHigh ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           }`}>
-                            {task.priority} Priority
+                            {task.priority} {t('dashboard.priority')}
                           </span>
                         </div>
                         <h4 className="text-xs font-bold text-white leading-normal">{task.title}</h4>
                       </div>
                       <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto border-t border-white/5 sm:border-transparent pt-2 sm:pt-0">
-                        <span className="text-[10px] text-slate-400">Due: <strong className="text-slate-200">{task.dueDate}</strong></span>
+                        <span className="text-[10px] text-slate-400">{t('dashboard.due')} <strong className="text-slate-200">{task.dueDate}</strong></span>
                         <Link
                           href="/tasks"
                           className="text-[10px] font-black text-primary hover:text-white transition-colors cursor-pointer"
                         >
-                          Workspace
+                          {t('dashboard.workspace')}
                         </Link>
                       </div>
                     </div>
@@ -273,14 +275,14 @@ export default function DashboardTab() {
           <div className="flex justify-between items-center">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <FileText size={18} className="text-primary" />
-              Portal Security Logs
+              {t('dashboard.portalSecurityLogs')}
             </h2>
             {notifications.length > 0 && (
               <button 
                 onClick={clearNotifications}
                 className="text-[10px] text-red-400 hover:text-red-300 cursor-pointer font-bold font-mono"
               >
-                Clear Logs
+                {t('dashboard.clearLogs')}
               </button>
             )}
           </div>
@@ -288,7 +290,7 @@ export default function DashboardTab() {
           <div className="bg-card/40 border border-white/5 rounded-3xl p-5 space-y-4 max-h-[480px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-xs">
-                No alert logs recorded on this session.
+                {t('dashboard.noAlerts')}
               </div>
             ) : (
               <div className="space-y-3.5">

@@ -6,8 +6,11 @@ import { ChevronLeft, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { GoogleButton } from "@/components/ui/GoogleButton";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -27,7 +30,7 @@ export default function RegisterPage() {
     setError(null);
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match. Please verify.");
+      setError(t('auth.passwordsNotMatch'));
       return;
     }
 
@@ -66,19 +69,17 @@ export default function RegisterPage() {
           <div className="flex justify-between items-center mb-6">
             <div className="mt-0 text-left">
               <h2 className="text-2xl font-extrabold mb-2 md:text-start text-[#FFFFFF]">
-                Join ORR <span className="text-[#61FD51]">Solutions</span>
+                {t('auth.joinPrefix')} <span className="text-[#61FD51]">{t('auth.joinHighlight')}</span>
               </h2>
               <p className="text-sm font-medium mb-10 text-[#FFFFFF] md:text-start">
-                Register a specialist partner account to view operational scopes.
+                {t('auth.registerDesc')}
               </p>
             </div>
 
             {/* Language & Theme toggles placeholders matching position and size */}
             <div className="mb-8 flex items-center gap-4">
+              <ThemeToggle />
               <LanguageToggle />
-              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400">
-                🌙
-              </div>
             </div>
           </div>
 
@@ -87,7 +88,7 @@ export default function RegisterPage() {
             <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-semibold flex gap-2.5 items-start">
               <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={16} />
               <div className="space-y-0.5">
-                <strong className="block text-red-400 uppercase tracking-wider text-[9px] font-mono">Register Warning</strong>
+                <strong className="block text-red-400 uppercase tracking-wider text-[9px] font-mono">{t('auth.registerWarning')}</strong>
                 <span>{error}</span>
               </div>
             </div>
@@ -99,7 +100,7 @@ export default function RegisterPage() {
             {/* First Name Entry */}
             <input
               type="text"
-              placeholder="First Name"
+              placeholder={t('auth.firstName')}
               value={formData.firstName}
               onChange={e => setFormData({ ...formData, firstName: e.target.value })}
               className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -109,7 +110,7 @@ export default function RegisterPage() {
             {/* Last Name Entry */}
             <input
               type="text"
-              placeholder="Last Name"
+              placeholder={t('auth.lastName')}
               value={formData.lastName}
               onChange={e => setFormData({ ...formData, lastName: e.target.value })}
               className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -119,7 +120,7 @@ export default function RegisterPage() {
             {/* Email Entry */}
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder={t('auth.emailPlaceholder')}
               value={formData.email}
               onChange={e => setFormData({ ...formData, email: e.target.value })}
               className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -130,7 +131,7 @@ export default function RegisterPage() {
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Password"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={formData.password}
                 onChange={e => setFormData({ ...formData, password: e.target.value })}
                 className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -149,7 +150,7 @@ export default function RegisterPage() {
             <div className="relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm Password"
+                placeholder={t('auth.confirmPassword')}
                 value={formData.confirmPassword}
                 onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
                 className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -170,12 +171,12 @@ export default function RegisterPage() {
               disabled={isLoading}
               className="w-full bg-[#13BE77] hover:bg-[#11aa6a] py-5 rounded-lg cursor-pointer mt-4 transition disabled:opacity-50 text-white font-regular shadow-lg shadow-[#13BE77]/10 active:scale-[0.99]"
             >
-              {isLoading ? "Signing Up..." : "Register"}
+              {isLoading ? t('auth.signingUp') : t('auth.register')}
             </button>
 
             {/* Incompatible Passwords alert */}
             {formData.password !== formData.confirmPassword && formData.confirmPassword && (
-              <p className="text-red-400 text-xs font-semibold mt-2">Passwords do not match.</p>
+              <p className="text-red-400 text-xs font-semibold mt-2">{t('auth.passwordsNotMatchInline')}</p>
             )}
 
             {/* Login footer link */}
@@ -184,7 +185,7 @@ export default function RegisterPage() {
                 href="/signin"
                 className="px-6 font-extrabold text-md text-[#FFFFFF]"
               >
-                Already have an account? <span className="text-[#61FD51] underline">Login</span>
+                {t('auth.alreadyHaveAccount')} <span className="text-[#61FD51] underline">{t('auth.loginLink')}</span>
               </Link>
             </div>
 
@@ -195,7 +196,7 @@ export default function RegisterPage() {
             <div className="relative flex items-center justify-center py-2">
               <div className="absolute w-full h-[1px] bg-gray-300/20" />
               <span className="relative px-4 text-xs font-black uppercase text-gray-500 bg-background tracking-widest font-mono">
-                OR
+                {t('auth.or')}
               </span>
             </div>
 

@@ -7,10 +7,13 @@ import { ChevronLeft, Eye, EyeOff, ShieldCheck, AlertTriangle } from 'lucide-rea
 import Link from 'next/link';
 import { GoogleButton } from '@/components/ui/GoogleButton';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function SignInPage() {
+  const { t } = useTranslation();
   const router = useRouter();
-  
+
   const loginConsultant = useConsultantStore(state => state.loginConsultant);
   const verify2fa = useConsultantStore(state => state.verify2fa);
   const is2faPending = useConsultantStore(state => state.is2faPending);
@@ -173,20 +176,20 @@ export default function SignInPage() {
               {!is2faPending ? (
                 <>
                   <h2 className="text-2xl font-extrabold mb-2 md:text-start text-[#FFFFFF]">
-                    Welcome <span className="text-[#61FD51]">Back</span>
+                    {t('auth.welcomePrefix')} <span className="text-[#61FD51]">{t('auth.welcomeHighlight')}</span>
                   </h2>
                   <p className="text-sm font-medium mb-10 text-[#FFFFFF] md:text-start">
-                    Sign in with your verified specialist account to view operational scopes.
+                    {t('auth.signInDesc')}
                   </p>
                 </>
               ) : (
                 <>
                   <h2 className="text-2xl font-extrabold mb-2 md:text-start text-[#FFFFFF] flex items-center gap-1.5">
                     <ShieldCheck className="text-[#61FD51]" size={26} />
-                    Verify <span className="text-[#61FD51]">Identity</span>
+                    {t('auth.verifyPrefix')} <span className="text-[#61FD51]">{t('auth.verifyHighlight')}</span>
                   </h2>
                   <p className="text-sm font-medium mb-10 text-[#FFFFFF] md:text-start">
-                    Enter the 6-digit passcode sent to your specialist authenticator device.
+                    {t('auth.verifyDesc')}
                   </p>
                 </>
               )}
@@ -194,10 +197,8 @@ export default function SignInPage() {
 
             {/* Language & Theme toggles matching position and size */}
             <div className="mb-8 flex items-center gap-4">
+              <ThemeToggle />
               <LanguageToggle />
-              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400">
-                🌙
-              </div>
             </div>
           </div>
 
@@ -219,7 +220,7 @@ export default function SignInPage() {
               {/* Email Entry */}
               <input
                 type="email"
-                placeholder="Email Address"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -230,7 +231,7 @@ export default function SignInPage() {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="w-full border-b border-gray-300 px-6 py-5 focus:outline-none text-white bg-transparent transition-colors focus:border-[#61FD51]"
@@ -254,7 +255,7 @@ export default function SignInPage() {
                     onChange={e => setRemember(e.target.checked)}
                     className="form-checkbox h-4 w-4 text-[#61FD51] bg-transparent border-gray-300 rounded focus:ring-0 mr-2 cursor-pointer"
                   />
-                  <span className="ml-2 font-poppins">Remember Me</span>
+                  <span className="ml-2 font-poppins">{t('auth.rememberMe')}</span>
                 </label>
 
                 <div className="hidden md:flex items-center">
@@ -262,7 +263,7 @@ export default function SignInPage() {
                     href="/forgot-password"
                     className="px-6 font-extrabold underline text-md text-[#61FD51] hover:text-[#52d743] transition"
                   >
-                    Forgot Password?
+                    {t('auth.forgotPassword')}
                   </Link>
                 </div>
               </div>
@@ -276,7 +277,7 @@ export default function SignInPage() {
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin mx-auto" />
                 ) : (
-                  'Login'
+                  t('auth.loginBtn')
                 )}
               </button>
 
@@ -286,7 +287,7 @@ export default function SignInPage() {
                   href="/register"
                   className="px-6 font-extrabold text-md text-[#FFFFFF]"
                 >
-                  New here? <span className="text-[#61FD51] underline">Register</span>
+                  {t('auth.newHere')} <span className="text-[#61FD51] underline">{t('auth.register')}</span>
                 </Link>
               </div>
             </form>
@@ -312,11 +313,7 @@ export default function SignInPage() {
                 ))}
               </div>
 
-              {/* Secure reminder block */}
-              <div className="p-4 bg-slate-950/40 border border-white/5 rounded-xl space-y-1 text-left font-mono text-[10px] text-slate-400 leading-normal">
-                <div className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">SMS Authentication Simulator</div>
-                Verification passcode generated: <strong className="text-[#61FD51]">123456</strong> or <strong className="text-[#61FD51]">888888</strong>.
-              </div>
+
 
               {/* Verify OTP submit CTA button */}
               <button
@@ -327,7 +324,7 @@ export default function SignInPage() {
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin mx-auto" />
                 ) : (
-                  'Verify Security Code'
+                  t('auth.verifyBtn')
                 )}
               </button>
 
@@ -337,9 +334,9 @@ export default function SignInPage() {
                   onClick={() => useConsultantStore.setState({ is2faPending: false, loginError: null })}
                   className="hover:text-white cursor-pointer transition font-mono"
                 >
-                  Change credentials
+                  {t('auth.changeCredentials')}
                 </button>
-                <span>Gateway Nodes Active</span>
+                <span>{t('auth.gatewayActive')}</span>
               </div>
             </form>
           )}
@@ -350,7 +347,7 @@ export default function SignInPage() {
             <div className="relative flex items-center justify-center py-2">
               <div className="absolute w-full h-[1px] bg-gray-300/20" />
               <span className="relative px-4 text-xs font-black uppercase text-gray-500 bg-background tracking-widest font-mono">
-                OR
+                {t('auth.or')}
               </span>
             </div>
 

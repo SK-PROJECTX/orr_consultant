@@ -13,11 +13,14 @@ import {
   ArrowUpRight,
   TrendingUp
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function WalletTab() {
+  const { t } = useTranslation();
   const walletBalance = useConsultantStore(state => state.walletBalance);
   const invoices = useConsultantStore(state => state.invoices);
   const submitInvoice = useConsultantStore(state => state.submitInvoice);
+  const withdrawFunds = useConsultantStore(state => state.withdrawFunds);
   const tasks = useConsultantStore(state => state.tasks);
 
   // Form State
@@ -33,6 +36,11 @@ export default function WalletTab() {
 
   // Expands detail
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+
+  // Withdrawal State
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<number | ''>('');
+  const [withdrawMethod, setWithdrawMethod] = useState('');
 
   // Completed or active billable tasks list
   const billableTasks = tasks.filter(t => t.status === 'COMPLETED' || t.status === 'UNDER_REVIEW');
@@ -57,7 +65,7 @@ export default function WalletTab() {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTask || !fileName) {
-      alert("Please map a task and upload an invoice PDF sheet.");
+      alert(t('wallet.alertMapTask'));
       return;
     }
 
@@ -82,18 +90,36 @@ export default function WalletTab() {
     setInvoiceNumber(`INV-2026-${Math.floor(100 + Math.random() * 900)}`);
   };
 
+  const handleWithdrawSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = Number(withdrawAmount);
+    if (amount <= 0 || amount > walletBalance.available) {
+      alert(t('wallet.insufficientFunds'));
+      return;
+    }
+    if (!withdrawMethod) {
+      alert(t('wallet.selectDestination'));
+      return;
+    }
+    
+    withdrawFunds(amount, withdrawMethod);
+    setShowWithdrawModal(false);
+    setWithdrawAmount('');
+    setWithdrawMethod('');
+  };
+
   const getStatusBadge = (status: Invoice['status']) => {
     switch (status) {
       case 'PAID':
-        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">Paid</span>;
+        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">{t('wallet.badges.paid')}</span>;
       case 'PROCESSING':
-        return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono animate-pulse">Processing</span>;
+        return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono animate-pulse">{t('wallet.badges.processingBadge')}</span>;
       case 'APPROVED':
-        return <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">Approved</span>;
+        return <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">{t('wallet.badges.approvedBadge')}</span>;
       case 'UNDER_REVIEW':
-        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">Under PM Review</span>;
+        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">{t('wallet.badges.underPmReview')}</span>;
       default:
-        return <span className="bg-slate-800 text-slate-400 border border-white/5 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">Submitted</span>;
+        return <span className="bg-slate-800 text-slate-400 border border-white/5 text-[9px] px-2 py-0.5 rounded-full font-black uppercase font-mono">{t('wallet.badges.submittedBadge')}</span>;
     }
   };
 
@@ -126,15 +152,15 @@ export default function WalletTab() {
       {/* Tab Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl lg:text-2xl font-black text-white">Wallet & Invoicing Ledger</h1>
-          <p className="text-slate-400 text-xs mt-1">Submit digital invoices for approved milestone deliverables and track disbursement status.</p>
+          <h1 className="text-xl lg:text-2xl font-black text-white">{t('wallet.title')}</h1>
+          <p className="text-slate-400 text-xs mt-1">{t('wallet.desc')}</p>
         </div>
         <button
           onClick={() => setShowSubmitModal(true)}
           className="flex items-center gap-2 px-5 py-3 bg-gradient-primary hover:opacity-90 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-primary/10 transition-all active:scale-[0.98] cursor-pointer"
         >
           <UploadCloud size={16} />
-          Submit Digital Invoice
+          {t('wallet.submitDigitalInvoice')}
         </button>
       </div>
 
@@ -142,44 +168,54 @@ export default function WalletTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gradient-to-br from-card to-card-light p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
           <div className="absolute right-6 top-6 text-primary opacity-20 group-hover:scale-110 transition-transform duration-300"><Wallet size={40} /></div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Cleared / Available Balance</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('wallet.clearedAvailableBalance')}</span>
           <h2 className="text-3xl font-black text-white mt-2">${walletBalance.available.toLocaleString()}</h2>
-          <p className="text-[10px] text-slate-400 mt-4 font-semibold flex items-center gap-1">
-            <CheckCircle size={12} className="text-primary" />
-            Ready for standard withdrawal cycle
-          </p>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+              <CheckCircle size={12} className="text-primary" />
+              {t('wallet.readyForStandardWithdrawal')}
+            </p>
+            {walletBalance.available > 0 && (
+              <button 
+                onClick={() => setShowWithdrawModal(true)}
+                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                {t('wallet.withdrawFunds')}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-card p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
           <div className="absolute right-6 top-6 text-amber-400 opacity-20 group-hover:scale-110 transition-transform duration-300"><Clock size={40} /></div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Pending Treasury Approval</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('wallet.pendingTreasuryApproval')}</span>
           <h2 className="text-3xl font-black text-white mt-2">${walletBalance.pending.toLocaleString()}</h2>
           <p className="text-[10px] text-slate-400 mt-4 font-semibold flex items-center gap-1">
             <TrendingUp size={12} className="text-primary" />
-            Accumulated invoices in routing
+            {t('wallet.accumulatedInvoices')}
           </p>
         </div>
 
         <div className="bg-card p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
           <div className="absolute right-6 top-6 text-cyan-400 opacity-20 group-hover:scale-110 transition-transform duration-300"><DollarSign size={40} /></div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">Cumulative Portal Earnings</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('wallet.cumulativePortalEarnings')}</span>
           <h2 className="text-3xl font-black text-white mt-2">${walletBalance.totalEarned.toLocaleString()}</h2>
           <p className="text-[10px] text-slate-400 mt-4 font-semibold flex items-center gap-1">
             <ArrowUpRight size={12} className="text-cyan-400" />
-            Specialist contract record sum
+            {t('wallet.specialistContractRecordSum')}
           </p>
         </div>
       </div>
 
       {/* Invoice list ledger */}
       <div className="space-y-4">
-        <h2 className="text-base font-extrabold text-white">Invoice Submissions Ledger</h2>
+        <h2 className="text-base font-extrabold text-white">{t('wallet.invoiceSubmissionsLedger')}</h2>
 
         {invoices.length === 0 ? (
           <div className="p-12 text-center bg-slate-900/10 border border-white/5 rounded-2xl space-y-2">
             <FileText size={32} className="text-slate-600 mx-auto" />
-            <h4 className="text-xs font-bold text-slate-400">No invoices submitted yet</h4>
-            <p className="text-[10px] text-slate-500">Complete tasks and click 'Submit Digital Invoice' to trigger billing.</p>
+            <h4 className="text-xs font-bold text-slate-400">{t('wallet.noInvoicesSubmitted')}</h4>
+            <p className="text-[10px] text-slate-500">{t('wallet.completeTasksAndClickSubmit')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -212,14 +248,14 @@ export default function WalletTab() {
                           <span className="font-mono text-xs text-white font-extrabold">{inv.invoiceNumber}</span>
                           <span className="text-[10px] text-slate-500 font-mono">({inv.billingPeriod})</span>
                         </div>
-                        <h4 className="text-xs font-bold text-slate-400">Billed Task: <span className="text-slate-300">{inv.taskTitle}</span></h4>
+                        <h4 className="text-xs font-bold text-slate-400">{t('wallet.billedTask')} <span className="text-slate-300">{inv.taskTitle}</span></h4>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-6 self-stretch md:self-auto justify-between md:justify-end border-t border-white/5 md:border-transparent pt-3 md:pt-0">
                       <div className="text-right">
                         <span className="text-sm font-black text-white font-mono">${inv.amount.toLocaleString()}</span>
-                        <p className="text-[9px] text-slate-500 font-mono mt-0.5">{inv.hours} hrs @ ${inv.rate}/hr</p>
+                        <p className="text-[9px] text-slate-500 font-mono mt-0.5">{inv.hours} {t('wallet.hoursStr')} @ ${inv.rate}/hr</p>
                       </div>
                       <div className="flex items-center gap-3">
                         {getStatusBadge(inv.status)}
@@ -236,7 +272,7 @@ export default function WalletTab() {
                       
                       {/* Interactive Visual Stepper Progress */}
                       <div className="space-y-3">
-                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Disbursement Progress Roadmap</span>
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('wallet.disbursementProgressRoadmap')}</span>
                         
                         <div className="bg-slate-900/50 p-6 border border-white/5 rounded-2xl">
                           {/* Stepper graphical line */}
@@ -255,7 +291,7 @@ export default function WalletTab() {
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${s1.circle}`}>
                                 1
                               </div>
-                              <span className={`text-[9px] font-mono tracking-tight ${s1.label}`}>Uploaded</span>
+                              <span className={`text-[9px] font-mono tracking-tight ${s1.label}`}>{t('wallet.uploaded')}</span>
                             </div>
 
                             {/* Node 2: PM Review */}
@@ -263,7 +299,7 @@ export default function WalletTab() {
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${s2.circle}`}>
                                 2
                               </div>
-                              <span className={`text-[9px] font-mono tracking-tight ${s2.label}`}>PM Audit</span>
+                              <span className={`text-[9px] font-mono tracking-tight ${s2.label}`}>{t('wallet.pmAudit')}</span>
                             </div>
 
                             {/* Node 3: Approved */}
@@ -271,7 +307,7 @@ export default function WalletTab() {
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${s3.circle}`}>
                                 3
                               </div>
-                              <span className={`text-[9px] font-mono tracking-tight ${s3.label}`}>Approved</span>
+                              <span className={`text-[9px] font-mono tracking-tight ${s3.label}`}>{t('wallet.approved')}</span>
                             </div>
 
                             {/* Node 4: Treasury Processing */}
@@ -279,7 +315,7 @@ export default function WalletTab() {
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${s4.circle}`}>
                                 4
                               </div>
-                              <span className={`text-[9px] font-mono tracking-tight ${s4.label}`}>Processing</span>
+                              <span className={`text-[9px] font-mono tracking-tight ${s4.label}`}>{t('wallet.processing')}</span>
                             </div>
 
                             {/* Node 5: Disbursed / Paid */}
@@ -287,7 +323,7 @@ export default function WalletTab() {
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${s5.circle}`}>
                                 5
                               </div>
-                              <span className={`text-[9px] font-mono tracking-tight ${s5.label}`}>Settled</span>
+                              <span className={`text-[9px] font-mono tracking-tight ${s5.label}`}>{t('wallet.settled')}</span>
                             </div>
                           </div>
                         </div>
@@ -296,19 +332,19 @@ export default function WalletTab() {
                       {/* Detail ledger logs */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Invoice Parameters</span>
+                          <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('wallet.invoiceParameters')}</span>
                           <div className="p-4 bg-slate-900/30 border border-white/5 rounded-xl space-y-1 font-mono text-[10px] text-slate-400">
-                            <div><strong className="text-slate-300">File uploaded:</strong> {inv.fileName}</div>
-                            <div><strong className="text-slate-300">Logged hours:</strong> {inv.hours} Hours</div>
-                            <div><strong className="text-slate-300">Hourly charge:</strong> ${inv.rate}/hr</div>
-                            <div><strong className="text-slate-300">Submitted at:</strong> {new Date(inv.submittedAt).toLocaleString()}</div>
+                            <div><strong className="text-slate-300">{t('wallet.fileUploaded')}</strong> {inv.fileName}</div>
+                            <div><strong className="text-slate-300">{t('wallet.loggedHours')}</strong> {inv.hours} {t('wallet.hoursStr')}</div>
+                            <div><strong className="text-slate-300">{t('wallet.hourlyCharge')}</strong> ${inv.rate}/hr</div>
+                            <div><strong className="text-slate-300">{t('wallet.submittedAt')}</strong> {new Date(inv.submittedAt).toLocaleString()}</div>
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
-                          <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">Auditor & PM Notes</span>
+                          <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block font-mono">{t('wallet.auditorPmNotes')}</span>
                           <div className="p-4 bg-slate-900/30 border border-white/5 rounded-xl text-xs leading-relaxed text-slate-300 font-semibold min-h-[75px]">
-                            {inv.reviewerNotes || 'Invoice received. Security metadata auditing pending.'}
+                            {inv.reviewerNotes || t('wallet.invoiceReceivedMetadata')}
                           </div>
                         </div>
                       </div>
@@ -329,8 +365,8 @@ export default function WalletTab() {
             {/* Header */}
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase text-primary tracking-wider font-mono">Digital Billing Suite</span>
-                <h3 className="text-lg font-black text-white">Generate Invoice Submission</h3>
+                <span className="text-[10px] font-black uppercase text-primary tracking-wider font-mono">{t('wallet.digitalBillingSuite')}</span>
+                <h3 className="text-lg font-black text-white">{t('wallet.generateInvoiceSubmission')}</h3>
               </div>
               <button 
                 onClick={() => setShowSubmitModal(false)}
@@ -344,7 +380,7 @@ export default function WalletTab() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Invoice Number</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.invoiceNumber')}</label>
                   <input
                     type="text"
                     value={invoiceNumber}
@@ -354,7 +390,7 @@ export default function WalletTab() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Billing Period</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.billingPeriod')}</label>
                   <input
                     type="text"
                     value={billingPeriod}
@@ -367,26 +403,26 @@ export default function WalletTab() {
 
               {/* Task mapping selector */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Select Billed Task</label>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.selectBilledTask')}</label>
                 <select
                   value={selectedTask}
                   onChange={e => setSelectedTask(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 transition-colors"
                   required
                 >
-                  <option value="" className="text-slate-800">-- Choose Completed/Audited Deliverable --</option>
+                  <option value="" className="text-slate-800">{t('wallet.chooseCompletedDeliverable')}</option>
                   {billableTasks.map(t => (
                     <option key={t.id} value={t.title} className="text-slate-800">
                       [{t.id}] {t.title} ({t.status})
                     </option>
                   ))}
-                  <option value="General Technical Consultation" className="text-slate-800">General Technical Partner Consultation</option>
+                  <option value="General Technical Consultation" className="text-slate-800">{t('wallet.generalTechnicalConsultation')}</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Hourly Billing Units</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.hourlyBillingUnits')}</label>
                   <input
                     type="number"
                     value={hours}
@@ -397,7 +433,7 @@ export default function WalletTab() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Agreed Contract Rate ($/hr)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.agreedContractRate')}</label>
                   <input
                     type="number"
                     value={rate}
@@ -411,7 +447,7 @@ export default function WalletTab() {
 
               {/* Drag and Drop File Upload Area */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">Invoice PDF Attachment</label>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.invoicePdfAttachment')}</label>
                 
                 <div
                   onDragOver={handleDragOver}
@@ -434,13 +470,13 @@ export default function WalletTab() {
                         onClick={() => setFileName('')} 
                         className="text-[9px] text-red-400 hover:underline font-mono"
                       >
-                        Remove file
+                        {t('wallet.removeFile')}
                       </button>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-xs font-bold text-slate-300">Drag & drop your invoice PDF sheet here</p>
-                      <p className="text-[10px] text-slate-500 mt-1">or click to browse local storage</p>
+                      <p className="text-xs font-bold text-slate-300">{t('wallet.dragDropInvoice')}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">{t('wallet.orClickToBrowse')}</p>
                       <input 
                         type="file"
                         accept=".pdf"
@@ -452,7 +488,7 @@ export default function WalletTab() {
                         htmlFor="invoice-file-picker"
                         className="mt-3 inline-block px-4 py-1.5 bg-slate-850 hover:bg-slate-800 border border-white/5 hover:border-white/10 rounded-xl text-[10px] font-bold text-slate-300 cursor-pointer transition-all"
                       >
-                        Select File
+                        {t('wallet.selectFile')}
                       </label>
                     </div>
                   )}
@@ -461,7 +497,7 @@ export default function WalletTab() {
 
               {/* Total Calculation */}
               <div className="p-4 bg-slate-950/60 border border-white/5 rounded-xl flex justify-between items-center font-mono">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Billed Amount:</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('wallet.totalBilledAmount')}</span>
                 <span className="text-sm font-black text-emerald-400">${(hours * rate).toLocaleString()}</span>
               </div>
 
@@ -471,16 +507,88 @@ export default function WalletTab() {
                   onClick={() => setShowSubmitModal(false)}
                   className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer"
                 >
-                  Discard
+                  {t('wallet.discard')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 bg-primary hover:bg-lemon text-background font-black py-3 rounded-xl transition text-xs shadow-lg shadow-primary/10 cursor-pointer"
                 >
-                  Submit Billing Record
+                  {t('wallet.submitBillingRecord')}
                 </button>
               </div>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Withdrawal Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="max-w-md w-full bg-slate-900 border border-primary/20 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] space-y-6 shadow-2xl relative">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-primary tracking-wider font-mono">{t('wallet.title')}</span>
+                <h3 className="text-lg font-black text-white">{t('wallet.withdrawFunds')}</h3>
+                <p className="text-xs text-slate-400 mt-1">{t('wallet.withdrawDesc')}</p>
+              </div>
+              <button 
+                onClick={() => setShowWithdrawModal(false)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
+              >
+                <ChevronDown size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleWithdrawSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">
+                  {t('wallet.withdrawalAmount')} <span className="text-slate-400 normal-case font-sans">({t('wallet.maxAvailable')} ${walletBalance.available.toLocaleString()})</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    value={withdrawAmount}
+                    onChange={e => setWithdrawAmount(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full pl-8 pr-4 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-lg font-black text-white focus:outline-none focus:border-primary/50 transition-colors font-mono"
+                    max={walletBalance.available}
+                    min={1}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('wallet.destinationAccount')}</label>
+                <select
+                  value={withdrawMethod}
+                  onChange={e => setWithdrawMethod(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
+                  required
+                >
+                  <option value="" disabled className="text-slate-500">{t('wallet.selectDestination')}</option>
+                  <option value="Bank Transfer">{t('wallet.bankTransfer')}</option>
+                  <option value="PayPal">{t('wallet.paypal')}</option>
+                  <option value="Crypto Wallet">{t('wallet.cryptoWallet')}</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowWithdrawModal(false)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer"
+                >
+                  {t('wallet.discard')}
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-lemon text-background font-black py-3 rounded-xl transition text-xs shadow-lg shadow-primary/10 cursor-pointer"
+                >
+                  {t('wallet.confirmWithdrawal')}
+                </button>
+              </div>
             </form>
           </div>
         </div>

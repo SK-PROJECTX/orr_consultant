@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useConsultantStore } from '@/store/consultantStore';
 
 export function LanguageToggle() {
-  const [language, setLanguage] = useState<'en' | 'it'>('en');
+  const language = useConsultantStore((state) => state.language);
+  const setLanguage = useConsultantStore((state) => state.setLanguage);
 
   const toggle = () => {
     const next = language === 'en' ? 'it' : 'en';

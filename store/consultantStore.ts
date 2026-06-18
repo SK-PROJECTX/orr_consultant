@@ -1,6 +1,15 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 // Types
+export interface ProfileData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  bio: string;
+  linkedIn: string;
+}
 export interface JobOffer {
   id: string;
   title: string;
@@ -59,12 +68,13 @@ export interface TrackChange {
 
 export interface VaultDocument {
   id: string;
-  jobId: string;
   title: string;
-  category: 'COMPANY_OWNED' | 'REFERENCE';
-  lastUpdated: string;
+  category: 'LEGAL' | 'FINANCIAL' | 'OPERATIONAL' | 'TECHNICAL';
   content: string;
-  originalContent: string;
+  type: 'doc' | 'sheet' | 'slide';
+  jobId: string;
+  status: 'LOCKED' | 'UNLOCKED';
+  lastModified: string;
   trackChanges: TrackChange[];
 }
 
@@ -95,6 +105,8 @@ export interface AppNotification {
 
 interface ConsultantState {
   // Authentication & 2FA Gate
+  language: 'en' | 'it';
+  setLanguage: (lang: 'en' | 'it') => void;
   isAuthenticated: boolean;
   is2faPending: boolean;
   loginError: string | null;
@@ -102,14 +114,20 @@ interface ConsultantState {
   verify2fa: (code: string) => boolean;
   logoutConsultant: () => void;
 
+  // Profile
+  profileData: ProfileData;
+  updateProfile: (data: Partial<ProfileData>) => void;
+
   // Onboarding
   onboardingCompleted: boolean;
   onboardingData: {
     industry: string;
     skills: string[];
     itCapabilities: string[];
+    timezone: string;
+    ndaAccepted: boolean;
   } | null;
-  completeOnboarding: (industry: string, skills: string[], itCapabilities: string[]) => void;
+  completeOnboarding: (industry: string, skills: string[], itCapabilities: string[], timezone: string, ndaAccepted: boolean) => void;
 
   // Jobs
   availableJobs: JobOffer[];
@@ -125,6 +143,7 @@ interface ConsultantState {
   };
   invoices: Invoice[];
   submitInvoice: (invoice: Omit<Invoice, 'id' | 'status' | 'submittedAt'>) => void;
+  withdrawFunds: (amount: number, method: string) => void;
 
   // Tasks
   tasks: Task[];
@@ -135,6 +154,7 @@ interface ConsultantState {
   documents: VaultDocument[];
   addDocumentTrackChange: (docId: string, type: 'INSERTION' | 'DELETION', text: string, line: number) => void;
   resetDocumentChanges: (docId: string) => void;
+  updateDocumentContent: (docId: string, newTitle: string, newContent: string) => void;
 
   // Chat
   messages: Message[];
@@ -247,23 +267,36 @@ const INITIAL_INVOICES: Invoice[] = [
 
 const INITIAL_DOCUMENTS: VaultDocument[] = [
   {
-    id: 'DOC-501',
-    jobId: 'JOB-901',
-    title: 'ORR_Living_Systems_Ecological_Surveys.md',
-    category: 'COMPANY_OWNED',
-    lastUpdated: '2026-05-20',
-    originalContent: `# orr solutions: ecological survey guidelines\n\n1. canopy cover indicators\nCanopy cover must be audited using vertical densiometer readings at 10-meter grid intersection nodes. \n\n2. soil carbon indexes\nTake core soil samples at 30cm depth. Target organic matter parameters should exceed 4.5% in regenerative agroforestry belts.\n\n3. acoustic biodiversity surveys\nDeploy high-fidelity bio-acoustic recorders for 48-hour intervals. Focus audits on key indicator bird species list indices.`,
-    content: `# orr solutions: ecological survey guidelines\n\n1. canopy cover indicators\nCanopy cover must be audited using vertical densiometer readings at 10-meter grid intersection nodes. \n\n2. soil carbon indexes\nTake core soil samples at 30cm depth. Target organic matter parameters should exceed 4.5% in regenerative agroforestry belts.\n\n3. acoustic biodiversity surveys\nDeploy high-fidelity bio-acoustic recorders for 48-hour intervals. Focus audits on key indicator bird species list indices.`,
+    id: 'doc-1',
+    title: 'Master Service Agreement',
+    category: 'LEGAL',
+    type: 'doc',
+    jobId: 'job-1',
+    status: 'UNLOCKED',
+    lastModified: new Date().toISOString(),
+    content: '<h2>1. General Provisions</h2>\n<p>This master agreement covers the initial infrastructure provisions.</p>\n<p>Supplier shall maintain 99.9% uptime for all deployed endpoints.</p>\n<p>...</p>',
     trackChanges: []
   },
   {
-    id: 'DOC-502',
-    jobId: 'JOB-902',
-    title: 'ORR_Operational_Systems_Provenance_Directives.md',
-    category: 'COMPANY_OWNED',
-    lastUpdated: '2026-05-22',
-    originalContent: `# orr solutions: material provenance directives\n\n1. batch serialization\nEvery recycled material shipment must receive a UUID-v4 block-signature serial code matching shipment packaging vectors.\n\n2. mass balance audits\nInput batch weight must align with processed output weight within a 1.5% margin of tolerance. Logs must register actor names.\n\n3. ledger encryption constraints\nTransaction ledgers recording batch transfers must employ HMAC-SHA256 checksum chains to guarantee tamper-proof routing history.`,
-    content: `# orr solutions: material provenance directives\n\n1. batch serialization\nEvery recycled material shipment must receive a UUID-v4 block-signature serial code matching shipment packaging vectors.\n\n2. mass balance audits\nInput batch weight must align with processed output weight within a 1.5% margin of tolerance. Logs must register actor names.\n\n3. ledger encryption constraints\nTransaction ledgers recording batch transfers must employ HMAC-SHA256 checksum chains to guarantee tamper-proof routing history.`,
+    id: 'doc-2',
+    title: 'Q3 Financial Projections',
+    category: 'FINANCIAL',
+    type: 'sheet',
+    jobId: 'job-1',
+    status: 'UNLOCKED',
+    lastModified: new Date(Date.now() - 86400000).toISOString(),
+    content: 'A1: Revenue, B1: $4.5M\nA2: Expenses, B2: $2.1M\nA3: Profit, B3: $2.4M',
+    trackChanges: []
+  },
+  {
+    id: 'doc-3',
+    title: 'Technical Implementation Slides',
+    category: 'TECHNICAL',
+    type: 'slide',
+    jobId: 'job-2',
+    status: 'UNLOCKED',
+    lastModified: new Date(Date.now() - 172800000).toISOString(),
+    content: 'Slide 1: Architecture Overview\nSlide 2: Deployment Strategy',
     trackChanges: []
   }
 ];
@@ -320,7 +353,13 @@ const INITIAL_NOTIFICATIONS: AppNotification[] = [
 ];
 
 // Zustand Store implementation
-export const useConsultantStore = create<ConsultantState>((set, get) => ({
+export const useConsultantStore = create<ConsultantState>()(
+  persist(
+    (set, get) => ({
+      // Language State
+      language: 'en',
+      setLanguage: (lang) => set({ language: lang }),
+
   // Authentication & 2FA State
   isAuthenticated: false,
   is2faPending: false,
@@ -373,13 +412,33 @@ export const useConsultantStore = create<ConsultantState>((set, get) => ({
     });
   },
 
+  // Profile State
+  profileData: {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    bio: '',
+    linkedIn: '',
+  },
+  updateProfile: (data) => {
+    set(state => ({
+      profileData: { ...state.profileData, ...data }
+    }));
+    get().addNotification(
+      'Profile Updated',
+      'Your specialist profile parameters have been successfully updated.',
+      'SYSTEM'
+    );
+  },
+
   // Onboarding State
   onboardingCompleted: false,
   onboardingData: null,
-  completeOnboarding: (industry, skills, itCapabilities) => {
+  completeOnboarding: (industry, skills, itCapabilities, timezone, ndaAccepted) => {
     set({
       onboardingCompleted: true,
-      onboardingData: { industry, skills, itCapabilities }
+      onboardingData: { industry, skills, itCapabilities, timezone, ndaAccepted }
     });
     
     // Add success notification
@@ -511,6 +570,19 @@ export const useConsultantStore = create<ConsultantState>((set, get) => ({
       );
     }, 15000);
   },
+  withdrawFunds: (amount, method) => {
+    set(state => ({
+      walletBalance: {
+        ...state.walletBalance,
+        available: Math.max(0, state.walletBalance.available - amount)
+      }
+    }));
+    get().addNotification(
+      'Withdrawal Initiated',
+      `A withdrawal of $${amount.toLocaleString()} via ${method} is being processed.`,
+      'PAYMENT'
+    );
+  },
 
   // Tasks
   tasks: INITIAL_TASKS,
@@ -575,59 +647,30 @@ export const useConsultantStore = create<ConsultantState>((set, get) => ({
   // Document Vault & Track Changes Simulation
   documents: INITIAL_DOCUMENTS,
   addDocumentTrackChange: (docId, type, text, line) => {
-    const doc = get().documents.find(d => d.id === docId);
-    if (!doc) return;
-
-    const newChange: TrackChange = {
-      id: `CHG-${Date.now()}`,
-      type,
-      text,
-      author: 'Consultant (You)',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      line
-    };
-
     set(state => ({
-      documents: state.documents.map(d => {
-        if (d.id === docId) {
-          let updatedContent = d.content;
-          if (type === 'INSERTION') {
-            // Simulated lines insertion/appendix addition
-            updatedContent = `${d.content}\n\n* [Track Change - Insertion] ${text}`;
-          } else if (type === 'DELETION') {
-            // Simulated striking
-            updatedContent = d.content.replace(text, `~~${text}~~`);
-          }
-
-          return {
-            ...d,
-            content: updatedContent,
-            trackChanges: [...d.trackChanges, newChange],
-            lastUpdated: new Date().toISOString().split('T')[0]
-          };
-        }
-        return d;
-      })
+      documents: state.documents.map(d => 
+        d.id === docId ? { 
+          ...d, 
+          trackChanges: [...d.trackChanges, { id: Math.random().toString(), type, text, line, timestamp: new Date().toLocaleTimeString(), author: 'Consultant Partner' }] 
+        } : d
+      )
     }));
-
-    get().addNotification(
-      'Document Amendment Tracked',
-      `Your changes to ${doc.title} have been stored with audit signature tracking.`,
-      'DOCUMENT'
-    );
   },
   resetDocumentChanges: (docId) => {
     set(state => ({
-      documents: state.documents.map(d => {
-        if (d.id === docId) {
-          return {
-            ...d,
-            content: d.originalContent,
-            trackChanges: []
-          };
-        }
-        return d;
-      })
+      documents: state.documents.map(d => d.id === docId ? { ...d, trackChanges: [] } : d)
+    }));
+  },
+  updateDocumentContent: (docId, newTitle, newContent) => {
+    set(state => ({
+      documents: state.documents.map(d => 
+        d.id === docId ? { 
+          ...d, 
+          title: newTitle,
+          content: newContent,
+          lastModified: new Date().toISOString()
+        } : d
+      )
     }));
   },
 
@@ -726,4 +769,15 @@ export const useConsultantStore = create<ConsultantState>((set, get) => ({
   clearNotifications: () => {
     set({ notifications: [] });
   }
-}));
+    }),
+    {
+      name: 'consultant-storage',
+      partialize: (state) => ({ 
+        language: state.language,
+        onboardingCompleted: state.onboardingCompleted,
+        onboardingData: state.onboardingData,
+        profileData: state.profileData
+      }),
+    }
+  )
+);
