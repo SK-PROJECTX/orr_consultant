@@ -25,12 +25,29 @@ export default function VaultTab() {
 
   // Unlocked documents based on accepted active jobs!
   const activeJobIds = activeJobs.map(j => j.id);
-  const unlockedDocs = documents.filter(doc => activeJobIds.includes(doc.jobId));
+  
+  // TEMPORARY: Bypass lock feature to preview document vault UI
+  const unlockedDocs = documents; // documents.filter(doc => activeJobIds.includes(doc.jobId));
 
   const currentDoc = unlockedDocs.find(d => d.id === selectedDocId) || null;
 
   // If no jobs accepted, vault is locked!
-  const isVaultLocked = unlockedDocs.length === 0;
+  // TEMPORARY: Bypass lock feature
+  const isVaultLocked = false; // unlockedDocs.length === 0;
+
+  // Intercept the WorkspaceShell 'open' event which was meant for '/document-vault/all' in admin
+  React.useEffect(() => {
+    if (view !== 'studio') return;
+    
+    const handleGlobalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.action === 'open') {
+        setView('detail');
+      }
+    };
+    document.addEventListener('editor-action', handleGlobalEvent);
+    return () => document.removeEventListener('editor-action', handleGlobalEvent);
+  }, [view]);
 
   if (isVaultLocked) {
     return (
@@ -72,20 +89,6 @@ export default function VaultTab() {
       </div>
     );
   }
-
-  // Intercept the WorkspaceShell 'open' event which was meant for '/document-vault/all' in admin
-  React.useEffect(() => {
-    if (view !== 'studio') return;
-    
-    const handleGlobalEvent = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.action === 'open') {
-        setView('detail');
-      }
-    };
-    document.addEventListener('editor-action', handleGlobalEvent);
-    return () => document.removeEventListener('editor-action', handleGlobalEvent);
-  }, [view]);
 
   const renderEditor = () => {
     if (!currentDoc) return null;

@@ -92,9 +92,6 @@ const MenuBar = ({ editor }: { editor: any }) => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
    }, []);
 
-   if (!editor) {
-      return null;
-   }
 
    const openPrompt = useCallback((title: string, placeholder: string, initialValue: string, onSubmit: (val: string) => void) => {
       setPromptState({ 
@@ -114,6 +111,10 @@ const MenuBar = ({ editor }: { editor: any }) => {
       (window as any).__openDocsPrompt = openPrompt;
       return () => { delete (window as any).__openDocsPrompt; };
    }, [openPrompt]);
+
+   if (!editor) {
+      return null;
+   }
 
    return (
       <>

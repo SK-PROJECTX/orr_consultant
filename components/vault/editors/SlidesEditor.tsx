@@ -69,6 +69,7 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
    const canvasRef = useRef<HTMLCanvasElement>(null);
    const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
    const containerRef = useRef<HTMLDivElement>(null);
+   const isRenderingRef = useRef(false);
 
    // Sensors for drag-and-drop
    const sensors = useSensors(
@@ -122,6 +123,7 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
       });
 
       const handleSave = () => {
+         if (isRenderingRef.current) return;
          if (!fabricCanvasRef.current || !activeSlideId) return;
          const json = fabricCanvasRef.current.toJSON();
          
@@ -149,14 +151,17 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
       if (!fabricCanvasRef.current || slides.length === 0 || !activeSlideId) return;
       
       const currentSlide = slides.find(s => s.id === activeSlideId);
+      isRenderingRef.current = true;
       if (currentSlide && currentSlide.canvasData) {
          fabricCanvasRef.current.loadFromJSON(currentSlide.canvasData, () => {
             fabricCanvasRef.current?.renderAll();
+            isRenderingRef.current = false;
          });
       } else {
          fabricCanvasRef.current.clear();
          fabricCanvasRef.current.backgroundColor = currentSlide?.bg || '#ffffff';
          fabricCanvasRef.current.renderAll();
+         isRenderingRef.current = false;
       }
    }, [activeSlideId]);
 

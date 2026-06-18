@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Sparkles, X, Activity } from 'lucide-react';
 import '@fortune-sheet/react/dist/index.css';
@@ -50,8 +50,17 @@ export default function SheetsEditor({ content, onChange, title, onTitleChange }
         return [{ name: "Sheet1", celldata: [] }];
     });
 
+    const contentRef = useRef(content);
+    useEffect(() => {
+        contentRef.current = content;
+    }, [content]);
+
     const handleChange = useCallback((d: any[]) => {
-        onChange(JSON.stringify(d));
+        const newContent = JSON.stringify(d);
+        if (newContent !== contentRef.current) {
+            contentRef.current = newContent;
+            onChange(newContent);
+        }
     }, [onChange]);
 
     return (
