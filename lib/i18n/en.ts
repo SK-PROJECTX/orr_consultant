@@ -131,7 +131,23 @@ export const en = {
     workspace: 'Workspace',
     portalSecurityLogs: 'Portal Security Logs',
     clearLogs: 'Clear Logs',
-    noAlerts: 'No alert logs recorded on this session.'
+    noAlerts: 'No alert logs recorded on this session.',
+    analytics: {
+      title: 'Analytics Overview',
+      activities: 'Activity Timeline',
+      payments: 'Payments & Revenue',
+      projectProgress: 'Project Progress',
+      taskBreakdown: 'Task Breakdown',
+      logins: 'Logins',
+      actions: 'Actions',
+      revenue: 'Revenue ($)',
+      cleared: 'Cleared',
+      pending: 'Pending',
+      completion: 'Completion %',
+      completed: 'Completed',
+      inProgress: 'In Progress',
+      open: 'Open'
+    }
   },
   wallet: {
     title: 'Wallet & Invoicing Ledger',
@@ -314,20 +330,82 @@ export const en = {
   profile: {
     title: 'Specialist Profile',
     desc: 'Update your personal details and professional credentials to match you with appropriate client tenders.',
-    personalDetails: 'Personal Details',
-    professionalSummary: 'Professional Summary',
+    updateProfile: 'Save Profile Changes',
+    
+    // Tabs
+    tabPersonal: 'Personal',
+    tabProfessional: 'Professional',
+    tabSkills: 'Skills & Expertise',
+    tabAvailability: 'Availability',
+
+    // Personal
+    personalInformation: 'Personal Information',
+    photo: 'Profile Photo URL',
     firstName: 'First Name',
     lastName: 'Last Name',
-    email: 'Email Address',
+    jobTitle: 'Job Title',
+    headline: 'Professional Headline',
+    bio: 'Bio / About',
+    gender: 'Gender (optional)',
+    dateOfBirth: 'Date of Birth (optional)',
+    nationality: 'Nationality',
+    languages: 'Languages Spoken',
+    timezone: 'Time Zone',
+    contactInfo: 'Contact Information',
+    email: 'Email',
     phone: 'Phone Number',
-    bio: 'Professional Bio',
-    linkedIn: 'LinkedIn Profile URL',
-    updateProfile: 'Update Profile',
-    placeholderFirstName: 'Enter first name',
-    placeholderLastName: 'Enter last name',
-    placeholderEmail: 'Enter email address',
-    placeholderPhone: 'Enter phone number',
-    placeholderBio: 'Write a brief professional summary...',
-    placeholderLinkedIn: 'https://linkedin.com/in/username'
+    website: 'Website',
+    socialLinks: 'Social Media Links',
+    linkedIn: 'LinkedIn',
+    twitter: 'X (Twitter)',
+    facebook: 'Facebook',
+    portfolio: 'Portfolio',
+
+    // Professional
+    professionalInformation: 'Professional Information',
+    consultantCategory: 'Consultant Category',
+    primarySpecialization: 'Primary Specialization',
+    secondarySpecializations: 'Secondary Specializations',
+    yearsOfExperience: 'Years of Experience',
+    currentCompany: 'Current Company',
+    previousCompanies: 'Previous Companies',
+    industryExpertise: 'Industry Expertise',
+    certifications: 'Certifications',
+    licenses: 'Licenses',
+    educationalQualifications: 'Educational Qualifications',
+    professionalMemberships: 'Professional Memberships',
+
+    // Skills
+    skillsAndExpertise: 'Skills & Expertise',
+    skillsManagement: 'Skills Management',
+    expertiseTags: 'Expertise Tags',
+    competencyLevel: 'Competency Level',
+    levelBeginner: 'Beginner',
+    levelIntermediate: 'Intermediate',
+    levelAdvanced: 'Advanced',
+    levelExpert: 'Expert',
+    areasOfSpecialization: 'Areas of Specialization',
+    consultingMethodologies: 'Consulting Methodologies',
+    skillNamePlaceholder: 'e.g. Data Analysis',
+
+    // Availability
+    availabilityManagement: 'Availability Management',
+    workingDays: 'Working Days',
+    workingHours: 'Working Hours',
+    startTime: 'Start Time',
+    endTime: 'End Time',
+    calendarIntegration: 'Calendar Integration Active',
+    vacationDates: 'Vacation Dates',
+    unavailableDates: 'Unavailable Dates',
+    publicHolidays: 'Observe Public Holidays',
+    autoBookingRules: 'Auto Booking Rules',
+    bufferTime: 'Buffer Time Between Sessions (mins)',
+    maxDailyConsultations: 'Maximum Daily Consultations',
+    consultationDurationOptions: 'Consultation Duration Options (mins)',
+
+    // Common placeholders/buttons
+    add: 'Add',
+    remove: 'Remove',
+    typeAndPressEnter: 'Type and press Enter to add...'
   }
 };

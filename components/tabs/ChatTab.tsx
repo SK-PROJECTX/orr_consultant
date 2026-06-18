@@ -1,13 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useConsultantStore } from '@/store/consultantStore';
-import { 
-  Send, 
-  User, 
-  ShieldCheck, 
-  MessageSquare, 
-  Terminal, 
+import {
+  Send,
+  User,
+  ShieldCheck,
+  MessageSquare,
+  Terminal,
   HelpCircle,
-  Clock
+  Clock,
+  FilePlus,
+  X,
+  File
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
@@ -15,10 +18,12 @@ export default function ChatTab() {
   const { t } = useTranslation();
   const messages = useConsultantStore(state => state.messages);
   const sendChatMessage = useConsultantStore(state => state.sendChatMessage);
-  
+
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [attachment, setAttachment] = useState<{name: string, url: string, type: string} | null>(null);
   const streamEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Scroll to bottom when messages load
   const scrollToBottom = () => {
@@ -42,10 +47,25 @@ export default function ChatTab() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
-    
-    sendChatMessage(inputText.trim());
+    if (!inputText.trim() && !attachment) return;
+
+    sendChatMessage(inputText.trim(), attachment || undefined);
     setInputText('');
+    setAttachment(null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setAttachment({
+      name: file.name,
+      url,
+      type: file.type
+    });
+
+    e.target.value = '';
   };
 
   // Quick suggestion chips
@@ -61,7 +81,7 @@ export default function ChatTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      
+
       {/* Tab Header */}
       <div>
         <h1 className="text-xl lg:text-2xl font-black text-white flex items-center gap-2">
@@ -74,15 +94,15 @@ export default function ChatTab() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
+
         {/* Left Column: Secure Channels contact card */}
         <div className="space-y-4">
           <span className="text-xs font-bold uppercase text-slate-500 tracking-wider block">{t('chat.secureConnections')}</span>
-          
+
           {/* Modern Contact Card */}
           <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md relative overflow-hidden flex items-center gap-4 shadow-lg shadow-black/20">
             <div className="absolute right-0 top-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
-            
+
             <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-white/10 flex items-center justify-center text-primary relative shadow-inner">
               <User size={20} className="text-slate-300" />
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm shadow-emerald-500/50" />
@@ -120,8 +140,8 @@ export default function ChatTab() {
         </div>
 
         {/* Right 3 Columns: Secure Chat Stream */}
-        <div className="lg:col-span-3 flex flex-col bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-3xl h-[560px] shadow-2xl shadow-black/40 overflow-hidden">
-          
+        <div className="lg:col-span-3 flex flex-col bg-card backdrop-blur-xl border border-white/10 rounded-3xl h-[560px] shadow-2xl shadow-black/40 overflow-hidden">
+
           {/* Channel topbar */}
           <div className="px-6 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md flex justify-between items-center select-none z-10 relative shadow-sm">
             <div className="space-y-1">
@@ -141,7 +161,7 @@ export default function ChatTab() {
             {messages.map(msg => {
               const isConsultant = msg.sender === 'CONSULTANT';
               return (
-                <div 
+                <div
                   key={msg.id}
                   className={`flex gap-3 w-full ${isConsultant ? 'justify-end' : 'justify-start'}`}
                 >
@@ -154,12 +174,25 @@ export default function ChatTab() {
 
                   {/* Bubble content */}
                   <div className={`space-y-1.5 max-w-[75%]`}>
-                    <div className={`px-4 py-3 text-sm leading-relaxed font-medium shadow-md ${
-                      isConsultant 
-                        ? 'bg-gradient-to-br from-primary to-[#11aa6a] text-slate-950 rounded-2xl rounded-br-sm' 
+                    <div className={`px-4 py-3 text-sm leading-relaxed font-medium shadow-md ${isConsultant
+                        ? 'bg-gradient-to-br from-primary to-[#11aa6a] text-slate-950 rounded-2xl rounded-br-sm'
                         : 'bg-slate-800/80 backdrop-blur-sm border border-white/5 text-slate-200 rounded-2xl rounded-bl-sm'
-                    }`}>
-                      {msg.text}
+                      }`}>
+                      {msg.attachment && (
+                        <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${isConsultant ? 'bg-black/10 border-black/10' : 'bg-white/5 border-white/10'}`}>
+                          {msg.attachment.type.startsWith('image/') ? (
+                            <img src={msg.attachment.url} alt={msg.attachment.name} className="w-10 h-10 rounded object-cover shadow-sm border border-white/10" />
+                          ) : (
+                            <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${isConsultant ? 'bg-black/10' : 'bg-white/10'}`}>
+                              <File size={20} className={isConsultant ? "text-slate-900" : "text-primary"} />
+                            </div>
+                          )}
+                          <span className={`text-xs font-bold truncate max-w-[150px] ${isConsultant ? 'text-slate-900' : 'text-white'}`}>
+                            {msg.attachment.name}
+                          </span>
+                        </div>
+                      )}
+                      {msg.text && <div>{msg.text}</div>}
                     </div>
                     <span className={`text-[10px] text-slate-500 block font-medium ${isConsultant ? 'text-right' : 'text-left'}`}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -194,7 +227,30 @@ export default function ChatTab() {
           </div>
 
           {/* Input Area Section */}
-          <div className="bg-white/5 backdrop-blur-xl border-t border-white/10">
+          <div className="bg-white/5 backdrop-blur-xl border-t border-white/10 relative">
+            {/* Attachment Preview */}
+            {attachment && (
+              <div className="absolute bottom-full left-4 mb-2 p-3 bg-slate-800 border border-white/10 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 z-20">
+                {attachment.type.startsWith('image/') ? (
+                   <img src={attachment.url} alt="preview" className="w-12 h-12 rounded-xl object-cover shadow-sm" />
+                ) : (
+                   <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shadow-sm">
+                     <File size={24} className="text-primary" />
+                   </div>
+                )}
+                <div className="flex flex-col pr-2">
+                  <span className="text-xs font-bold text-white max-w-[180px] truncate">{attachment.name}</span>
+                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">Attached file</span>
+                </div>
+                <button 
+                  onClick={() => setAttachment(null)}
+                  className="p-1.5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-lg transition-colors border border-transparent hover:border-red-500/30"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             {/* Quick suggestions area */}
             <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto hide-scrollbar border-b border-white/5">
               <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 mr-2 shrink-0">
@@ -214,6 +270,14 @@ export default function ChatTab() {
 
             {/* Chat text box input */}
             <form onSubmit={handleSend} className="p-4 flex gap-3 items-end">
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-[52px] h-[52px] rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-primary transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-inner"
+              >
+                <FilePlus size={22} />
+              </button>
               <div className="flex-1 relative">
                 <textarea
                   placeholder={t('chat.sendSecureMessagePlaceholder')}

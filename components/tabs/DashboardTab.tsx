@@ -15,6 +15,7 @@ import {
   Sparkles 
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import AnalyticsOverview from '@/components/dashboard/AnalyticsOverview';
 
 export default function DashboardTab() {
   const { t } = useTranslation();
@@ -109,6 +110,9 @@ export default function DashboardTab() {
           </p>
         </div>
       </div>
+
+      {/* Analytics Graphs */}
+      <AnalyticsOverview />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Job Acceptance & Deadlines */}

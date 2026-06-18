@@ -39,16 +39,49 @@ export default function DashboardLayout({
   const notifications = useConsultantStore(state => state.notifications);
   const markNotificationRead = useConsultantStore(state => state.markNotificationRead);
   const clearNotifications = useConsultantStore(state => state.clearNotifications);
+  const logoutConsultant = useConsultantStore(state => state.logoutConsultant);
 
   const [showAlertLog, setShowAlertLog] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const isAuthPage = pathname === '/signin' || pathname === '/register';
 
   useEffect(() => {
-    if (!isAuthenticated && !isAuthPage) {
+    if (isMounted && !isAuthenticated && !isAuthPage) {
       router.replace('/signin');
     }
-  }, [isAuthenticated, isAuthPage, router]);
+  }, [isMounted, isAuthenticated, isAuthPage, router]);
+
+  // Inactivity Timeout (10 minutes)
+  useEffect(() => {
+    if (!isAuthenticated || isAuthPage) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // 10 minutes = 10 * 60 * 1000 = 600000 ms
+      timeoutId = setTimeout(() => {
+        logoutConsultant();
+        router.replace('/signin');
+      }, 600000);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => document.addEventListener(event, resetTimer, true));
+
+    // Initialize timer
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => document.removeEventListener(event, resetTimer, true));
+    };
+  }, [isAuthenticated, isAuthPage, logoutConsultant, router]);
 
   // If it's a signin or register page, render directly without sidebar wrappers
   if (isAuthPage) {
@@ -96,12 +129,16 @@ export default function DashboardLayout({
         </div>
       </main>
 
-      {/* Shared Alert Logs Modal */}
+      {/* Shared Alert Logs Sidepop */}
       {showAlertLog && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="max-w-md w-full bg-slate-900 border border-primary/20 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] space-y-6 shadow-2xl relative">
+        <>
+          <div 
+            className="fixed inset-0 bg-black/40 z-40 animate-in fade-in duration-300 backdrop-blur-sm"
+            onClick={() => setShowAlertLog(false)}
+          />
+          <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-surface border-l border-white/10 p-6 z-50 animate-in slide-in-from-right duration-300 shadow-2xl flex flex-col">
             
-            <div className="flex justify-between items-center pb-2 border-b border-white/5">
+            <div className="flex justify-between items-center pb-6 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-2">
                 <Bell size={20} className="text-primary" />
                 <h3 className="text-base font-extrabold text-white">{t('layout.alertLogTitle')}</h3>
@@ -114,7 +151,7 @@ export default function DashboardLayout({
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+            <div className="flex-1 space-y-3 overflow-y-auto py-6 pr-2 custom-scrollbar">
               {notifications.length === 0 ? (
                 <div className="text-center py-12 text-xs text-slate-500 font-medium">
                   {t('layout.noAlerts')}
@@ -148,24 +185,24 @@ export default function DashboardLayout({
               )}
             </div>
 
-            <div className="flex gap-3 pt-2 border-t border-white/5">
+            <div className="flex gap-3 pt-6 border-t border-white/5 shrink-0">
               <button
                 onClick={clearNotifications}
                 disabled={notifications.length === 0}
-                className="flex-1 bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 disabled:opacity-40 text-red-400 font-bold py-2.5 rounded-xl transition text-xs cursor-pointer"
+                className="flex-1 bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 disabled:opacity-40 text-red-400 font-bold py-3 rounded-xl transition text-xs cursor-pointer"
               >
                 {t('layout.clearAll')}
               </button>
               <button
                 onClick={() => setShowAlertLog(false)}
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl transition text-xs cursor-pointer"
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition text-xs cursor-pointer"
               >
                 {t('layout.closeLogs')}
               </button>
             </div>
 
           </div>
-        </div>
+        </>
       )}
     </div>
   );

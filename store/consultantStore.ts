@@ -3,12 +3,60 @@ import { persist } from 'zustand/middleware';
 
 // Types
 export interface ProfileData {
+  // 1. Personal Information
+  photoUrl?: string;
   firstName: string;
   lastName: string;
+  jobTitle: string;
+  headline: string;
+  bio: string;
+  gender: string;
+  dateOfBirth: string;
+  nationality: string;
+  languages: string[];
+  timezone: string;
   email: string;
   phone: string;
-  bio: string;
-  linkedIn: string;
+  website: string;
+  socialLinks: {
+    linkedIn: string;
+    twitter: string;
+    facebook: string;
+    portfolio: string;
+  };
+
+  // 2. Professional Information
+  consultantCategory: string;
+  primarySpecialization: string;
+  secondarySpecializations: string[];
+  yearsOfExperience: number | '';
+  currentCompany: string;
+  previousCompanies: string[];
+  industryExpertise: string[];
+  certifications: string[];
+  licenses: string[];
+  educationalQualifications: string[];
+  professionalMemberships: string[];
+
+  // 3. Skills & Expertise
+  skills: { name: string; level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert' }[];
+  expertiseTags: string[];
+  areasOfSpecialization: string[];
+  consultingMethodologies: string[];
+
+  // 4. Availability Management
+  availability: {
+    workingDays: string[];
+    workingHours: { start: string; end: string };
+    calendarIntegration: boolean;
+    vacationDates: string[];
+    unavailableDates: string[];
+    publicHolidays: boolean;
+    autoBookingRules: boolean;
+    bufferTimeMinutes: number;
+    maxDailyConsultations: number | '';
+    consultationDurationOptions: number[];
+  };
 }
 export interface JobOffer {
   id: string;
@@ -83,6 +131,11 @@ export interface Message {
   sender: 'CONSULTANT' | 'PROJECT_MANAGER';
   text: string;
   timestamp: string;
+  attachment?: {
+    name: string;
+    url?: string;
+    type: string;
+  };
 }
 
 export interface Meeting {
@@ -158,7 +211,7 @@ interface ConsultantState {
 
   // Chat
   messages: Message[];
-  sendChatMessage: (text: string) => void;
+  sendChatMessage: (text: string, attachment?: { name: string; url?: string; type: string }) => void;
 
   // Meetings
   meetings: Meeting[];
@@ -416,10 +469,50 @@ export const useConsultantStore = create<ConsultantState>()(
   profileData: {
     firstName: '',
     lastName: '',
+    jobTitle: '',
+    headline: '',
+    bio: '',
+    gender: '',
+    dateOfBirth: '',
+    nationality: '',
+    languages: [],
+    timezone: '',
     email: '',
     phone: '',
-    bio: '',
-    linkedIn: '',
+    website: '',
+    socialLinks: {
+      linkedIn: '',
+      twitter: '',
+      facebook: '',
+      portfolio: '',
+    },
+    consultantCategory: '',
+    primarySpecialization: '',
+    secondarySpecializations: [],
+    yearsOfExperience: '',
+    currentCompany: '',
+    previousCompanies: [],
+    industryExpertise: [],
+    certifications: [],
+    licenses: [],
+    educationalQualifications: [],
+    professionalMemberships: [],
+    skills: [],
+    expertiseTags: [],
+    areasOfSpecialization: [],
+    consultingMethodologies: [],
+    availability: {
+      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      workingHours: { start: '09:00', end: '17:00' },
+      calendarIntegration: false,
+      vacationDates: [],
+      unavailableDates: [],
+      publicHolidays: false,
+      autoBookingRules: false,
+      bufferTimeMinutes: 15,
+      maxDailyConsultations: '',
+      consultationDurationOptions: [30, 60],
+    }
   },
   updateProfile: (data) => {
     set(state => ({
@@ -676,12 +769,13 @@ export const useConsultantStore = create<ConsultantState>()(
 
   // Chat Secure Messaging
   messages: INITIAL_MESSAGES,
-  sendChatMessage: (text) => {
+  sendChatMessage: (text, attachment) => {
     const newMsg: Message = {
-      id: `MSG-${Date.now()}`,
+      id: `msg-${Date.now()}`,
       sender: 'CONSULTANT',
       text,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      attachment
     };
 
     set(state => ({

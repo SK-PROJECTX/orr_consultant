@@ -131,7 +131,23 @@ export const it = {
     workspace: 'Spazio di Lavoro',
     portalSecurityLogs: 'Registri Sicurezza Portale',
     clearLogs: 'Cancella Registri',
-    noAlerts: 'Nessun registro di avviso registrato in questa sessione.'
+    noAlerts: 'Nessun registro di avviso registrato in questa sessione.',
+    analytics: {
+      title: 'Panoramica Analisi',
+      activities: 'Cronologia Attività',
+      payments: 'Pagamenti e Entrate',
+      projectProgress: 'Avanzamento Progetto',
+      taskBreakdown: 'Ripartizione Attività',
+      logins: 'Accessi',
+      actions: 'Azioni',
+      revenue: 'Entrate ($)',
+      cleared: 'Incassato',
+      pending: 'In Sospeso',
+      completion: '% Completamento',
+      completed: 'Completato',
+      inProgress: 'In Corso',
+      open: 'Aperto'
+    }
   },
   wallet: {
     title: 'Registro Portafoglio & Fatturazione',
@@ -314,20 +330,82 @@ export const it = {
   profile: {
     title: 'Profilo Specialista',
     desc: 'Aggiorna i tuoi dati personali e le tue credenziali professionali per essere abbinato alle offerte di lavoro dei clienti.',
-    personalDetails: 'Dettagli Personali',
-    professionalSummary: 'Riepilogo Professionale',
+    updateProfile: 'Salva Modifiche Profilo',
+    
+    // Tabs
+    tabPersonal: 'Personale',
+    tabProfessional: 'Professionale',
+    tabSkills: 'Competenze ed Esperienza',
+    tabAvailability: 'Disponibilità',
+
+    // Personal
+    personalInformation: 'Informazioni Personali',
+    photo: 'URL Foto Profilo',
     firstName: 'Nome',
     lastName: 'Cognome',
-    email: 'Indirizzo Email',
+    jobTitle: 'Qualifica Professionale',
+    headline: 'Titolo Professionale',
+    bio: 'Biografia / Chi Sono',
+    gender: 'Genere (opzionale)',
+    dateOfBirth: 'Data di Nascita (opzionale)',
+    nationality: 'Nazionalità',
+    languages: 'Lingue Parlate',
+    timezone: 'Fuso Orario',
+    contactInfo: 'Informazioni di Contatto',
+    email: 'Email',
     phone: 'Numero di Telefono',
-    bio: 'Biografia Professionale',
-    linkedIn: 'URL Profilo LinkedIn',
-    updateProfile: 'Aggiorna Profilo',
-    placeholderFirstName: 'Inserisci il nome',
-    placeholderLastName: 'Inserisci il cognome',
-    placeholderEmail: 'Inserisci l\'indirizzo email',
-    placeholderPhone: 'Inserisci il numero di telefono',
-    placeholderBio: 'Scrivi un breve riepilogo professionale...',
-    placeholderLinkedIn: 'https://linkedin.com/in/username'
+    website: 'Sito Web',
+    socialLinks: 'Link ai Social Media',
+    linkedIn: 'LinkedIn',
+    twitter: 'X (Twitter)',
+    facebook: 'Facebook',
+    portfolio: 'Portfolio',
+
+    // Professional
+    professionalInformation: 'Informazioni Professionali',
+    consultantCategory: 'Categoria Consulente',
+    primarySpecialization: 'Specializzazione Principale',
+    secondarySpecializations: 'Specializzazioni Secondarie',
+    yearsOfExperience: 'Anni di Esperienza',
+    currentCompany: 'Azienda Attuale',
+    previousCompanies: 'Aziende Precedenti',
+    industryExpertise: 'Competenza nel Settore',
+    certifications: 'Certificazioni',
+    licenses: 'Licenze',
+    educationalQualifications: 'Titoli di Studio',
+    professionalMemberships: 'Appartenenze Professionali',
+
+    // Skills
+    skillsAndExpertise: 'Competenze ed Esperienza',
+    skillsManagement: 'Gestione Competenze',
+    expertiseTags: 'Tag di Esperienza',
+    competencyLevel: 'Livello di Competenza',
+    levelBeginner: 'Principiante',
+    levelIntermediate: 'Intermedio',
+    levelAdvanced: 'Avanzato',
+    levelExpert: 'Esperto',
+    areasOfSpecialization: 'Aree di Specializzazione',
+    consultingMethodologies: 'Metodologie di Consulenza',
+    skillNamePlaceholder: 'es. Analisi dei Dati',
+
+    // Availability
+    availabilityManagement: 'Gestione Disponibilità',
+    workingDays: 'Giorni Lavorativi',
+    workingHours: 'Orario di Lavoro',
+    startTime: 'Ora di Inizio',
+    endTime: 'Ora di Fine',
+    calendarIntegration: 'Integrazione Calendario Attiva',
+    vacationDates: 'Date di Vacanza',
+    unavailableDates: 'Date Non Disponibili',
+    publicHolidays: 'Osserva Giorni Festivi',
+    autoBookingRules: 'Regole di Prenotazione Automatica',
+    bufferTime: 'Tempo di Margine Tra le Sessioni (min)',
+    maxDailyConsultations: 'Consultazioni Giornaliere Massime',
+    consultationDurationOptions: 'Opzioni Durata Consultazione (min)',
+
+    // Common placeholders/buttons
+    add: 'Aggiungi',
+    remove: 'Rimuovi',
+    typeAndPressEnter: 'Digita e premi Invio per aggiungere...'
   }
 };
