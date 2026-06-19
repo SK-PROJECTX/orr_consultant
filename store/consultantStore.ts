@@ -119,11 +119,16 @@ export interface VaultDocument {
   title: string;
   category: 'LEGAL' | 'FINANCIAL' | 'OPERATIONAL' | 'TECHNICAL';
   content: string;
-  type: 'doc' | 'sheet' | 'slide';
-  jobId: string;
+  type: 'doc' | 'sheet' | 'slide' | 'folder' | 'file';
+  jobId?: string;
   status: 'LOCKED' | 'UNLOCKED';
   lastModified: string;
   trackChanges: TrackChange[];
+  parentId?: string | null;
+  fileMeta?: {
+    size: number;
+    mimeType: string;
+  };
 }
 
 export interface Message {
@@ -208,6 +213,9 @@ interface ConsultantState {
   addDocumentTrackChange: (docId: string, type: 'INSERTION' | 'DELETION', text: string, line: number) => void;
   resetDocumentChanges: (docId: string) => void;
   updateDocumentContent: (docId: string, newTitle: string, newContent: string) => void;
+  createFolder: (title: string, parentId: string | null) => void;
+  createDocument: (type: 'doc' | 'sheet' | 'slide', title: string, parentId: string | null) => void;
+  uploadFileToVault: (fileObj: { name: string, type: string, size: number }, parentId: string | null) => void;
 
   // Chat
   messages: Message[];
@@ -759,11 +767,69 @@ export const useConsultantStore = create<ConsultantState>()(
       documents: state.documents.map(d => 
         d.id === docId ? { 
           ...d, 
-          title: newTitle,
-          content: newContent,
-          lastModified: new Date().toISOString()
+          title: newTitle, 
+          content: newContent, 
+          lastModified: new Date().toISOString() 
         } : d
       )
+    }));
+  },
+  createFolder: (title, parentId) => {
+    set(state => ({
+      documents: [
+        {
+          id: `fld-${Date.now()}`,
+          title,
+          category: 'OPERATIONAL', // Defaulting
+          content: '',
+          type: 'folder',
+          status: 'UNLOCKED',
+          lastModified: new Date().toISOString(),
+          trackChanges: [],
+          parentId
+        },
+        ...state.documents
+      ]
+    }));
+  },
+  createDocument: (type, title, parentId) => {
+    set(state => ({
+      documents: [
+        {
+          id: `doc-${Date.now()}`,
+          title,
+          category: 'TECHNICAL',
+          content: type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '',
+          type,
+          status: 'UNLOCKED',
+          lastModified: new Date().toISOString(),
+          trackChanges: [],
+          parentId
+        },
+        ...state.documents
+      ]
+    }));
+  },
+  uploadFileToVault: (fileObj, parentId) => {
+    set(state => ({
+      documents: [
+        {
+          id: `file-${Date.now()}`,
+          title: fileObj.name,
+          category: 'OPERATIONAL',
+          content: '',
+          type: 'file',
+          status: 'UNLOCKED',
+          lastModified: new Date().toISOString(),
+          trackChanges: [],
+          parentId,
+          fileMeta: {
+            size: fileObj.size,
+            mimeType: fileObj.type
+          }
+        },
+        ...state.documents
+      ]
     }));
   },
 

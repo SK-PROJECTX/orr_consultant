@@ -1,17 +1,136 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useConsultantStore, Task } from '@/store/consultantStore';
 import {
-  CheckSquare,
   Clock,
   AlertCircle,
-  Send,
   UploadCloud,
   CheckCircle,
-  ChevronRight,
-  ArrowRight,
-  TrendingUp
+  TrendingUp,
+  GripHorizontal,
+  ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { 
+  DndContext, 
+  useDraggable, 
+  useDroppable, 
+  DragEndEvent,
+  DragOverlay,
+  defaultDropAnimationSideEffects
+} from '@dnd-kit/core';
+
+interface DroppableColumnProps {
+  id: Task['status'];
+  title: string;
+  icon: React.ReactNode;
+  tasks: Task[];
+  onTaskClick?: (taskId: string) => void;
+}
+
+const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, tasks, onTaskClick }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`flex flex-col min-w-[280px] sm:min-w-[320px] max-w-[350px] bg-slate-900/40 border rounded-3xl overflow-hidden transition-colors duration-300 ${
+        isOver ? 'border-primary/50 bg-slate-900/60' : 'border-white/5'
+      }`}
+    >
+      <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-950/40">
+        <h3 className="font-bold text-sm text-white flex items-center gap-2">
+          {icon}
+          {title}
+        </h3>
+        <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-full">
+          {tasks.length}
+        </span>
+      </div>
+      <div className="p-4 flex-1 space-y-4 overflow-y-auto min-h-[400px]">
+        {tasks.map(task => (
+          <DraggableTaskCard key={task.id} task={task} onClick={() => onTaskClick?.(task.id)} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onClick?: () => void }> = ({ task, isOverlay, onClick }) => {
+  const { t } = useTranslation();
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  const getPriorityBadge = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'HIGH':
+        return <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityHigh')}</span>;
+      case 'MEDIUM':
+        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityMedium')}</span>;
+      default:
+        return <span className="bg-slate-800 text-slate-400 border border-white/5 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityLow')}</span>;
+    }
+  };
+
+  if (isDragging && !isOverlay) {
+    return <div ref={setNodeRef} className="opacity-30 border-2 border-dashed border-primary/50 bg-card/10 h-[150px] rounded-2xl" />;
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-grab'}`}
+      {...listeners}
+      {...attributes}
+    >
+      {task.status === 'IN_PROGRESS' && (
+        <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400" />
+      )}
+      
+      <div className="flex justify-between items-start">
+        <span className="text-[9px] font-mono text-slate-500 font-extrabold">{task.id}</span>
+        <GripHorizontal size={14} className="text-slate-600" />
+      </div>
+      
+      <div>
+        <h4 className="text-xs font-extrabold text-white leading-snug mb-1">{task.title}</h4>
+        <p className="text-slate-400 text-[10px] line-clamp-2 leading-relaxed">{task.description}</p>
+      </div>
+
+      <div className="flex justify-between items-end mt-2 pt-2 border-t border-white/5">
+        <span className="text-[9px] text-slate-500 font-mono">
+          {t('tasks.due')} <strong className="text-slate-300">{task.dueDate}</strong>
+        </span>
+        {getPriorityBadge(task.priority)}
+      </div>
+
+      {task.status === 'UNDER_REVIEW' && task.deliverableSubmitted && (
+         <div className="mt-1 p-2 bg-slate-950/40 rounded-lg border border-white/5 space-y-1 font-mono text-[8px] text-slate-400">
+           <div className="truncate"><strong className="text-slate-300">{t('tasks.filePackage')}</strong> {task.deliverableSubmitted.fileName}</div>
+         </div>
+      )}
+
+      {task.status === 'IN_PROGRESS' && (
+        <div 
+           className="mt-2 text-[9px] font-black text-cyan-400 flex items-center gap-1 cursor-pointer hover:text-cyan-300"
+           onPointerDown={(e) => {
+             e.stopPropagation(); 
+             onClick?.();
+           }}
+        >
+          {t('tasks.submitDeliverable')} <ChevronRight size={10} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function TasksTab() {
   const { t } = useTranslation();
@@ -19,15 +138,12 @@ export default function TasksTab() {
   const updateTaskStatus = useConsultantStore(state => state.updateTaskStatus);
   const submitTaskDeliverable = useConsultantStore(state => state.submitTaskDeliverable);
 
-  const [activeFilter, setActiveFilter] = useState<'ALL' | Task['status']>('ALL');
-
   // Submit Drawer State
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [fileName, setFileName] = useState('');
   const [dragging, setDragging] = useState(false);
-
-  const filteredTasks = tasks.filter(t => activeFilter === 'ALL' || t.status === activeFilter);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -57,153 +173,69 @@ export default function TasksTab() {
     }
   };
 
-  const getPriorityBadge = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH':
-        return <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityHigh')}</span>;
-      case 'MEDIUM':
-        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityMedium')}</span>;
-      default:
-        return <span className="bg-slate-800 text-slate-400 border border-white/5 text-[8px] px-1.5 py-0.5 rounded font-black font-mono uppercase">{t('tasks.priorityLow')}</span>;
-    }
+  const handleDragStart = (event: any) => {
+    setActiveDragId(event.active.id);
   };
 
-  const getStatusLabel = (status: Task['status']) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <span className="text-emerald-400 text-xs font-black flex items-center gap-1"><CheckCircle size={14} /> {t('tasks.statusCompleted')}</span>;
-      case 'UNDER_REVIEW':
-        return <span className="text-amber-400 text-xs font-black flex items-center gap-1 animate-pulse"><Clock size={14} /> {t('tasks.statusAuditing')}</span>;
-      case 'IN_PROGRESS':
-        return <span className="text-cyan-400 text-xs font-black flex items-center gap-1"><TrendingUp size={14} /> {t('tasks.statusCoding')}</span>;
-      default:
-        return <span className="text-slate-400 text-xs font-black flex items-center gap-1"><AlertCircle size={14} /> {t('tasks.statusAssigned')}</span>;
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const currentStatus = tasks.find(t => t.id === taskId)?.status;
+    const targetStatus = over.id as Task['status'];
+
+    if (currentStatus === targetStatus) return;
+
+    // If moving to UNDER_REVIEW, trigger the submission modal instead of immediate update
+    if (targetStatus === 'UNDER_REVIEW' && currentStatus !== 'UNDER_REVIEW') {
+      setSubmittingTaskId(taskId);
+      return;
     }
+
+    updateTaskStatus(taskId, targetStatus);
   };
 
   const submittingTaskObj = tasks.find(t => t.id === submittingTaskId);
+  const activeDragTask = tasks.find(t => t.id === activeDragId);
+
+  const cols = [
+    { id: 'ASSIGNED' as const, title: t('tasks.statusAssigned'), icon: <AlertCircle size={16} className="text-slate-400" /> },
+    { id: 'IN_PROGRESS' as const, title: t('tasks.statusCoding'), icon: <TrendingUp size={16} className="text-cyan-400" /> },
+    { id: 'UNDER_REVIEW' as const, title: t('tasks.statusAuditing'), icon: <Clock size={16} className="text-amber-400" /> },
+    { id: 'COMPLETED' as const, title: t('tasks.statusCompleted'), icon: <CheckCircle size={16} className="text-emerald-400" /> },
+  ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-300">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-black text-white">{t('tasks.title')}</h1>
-          <p className="text-slate-400 text-xs mt-1">{t('tasks.desc')}</p>
-        </div>
+      <div className="flex-shrink-0">
+        <h1 className="text-xl lg:text-2xl font-black text-white">{t('tasks.title')}</h1>
+        <p className="text-slate-400 text-xs mt-1">{t('tasks.desc')}</p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex bg-slate-900/60 p-1 border border-white/5 rounded-2xl w-full max-w-xl">
-        {(['ALL', 'ASSIGNED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveFilter(tab)}
-            className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black transition-all cursor-pointer ${activeFilter === tab
-                ? 'bg-primary text-background shadow-lg'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-          >
-            {tab === 'ALL' ? t('tasks.tabAll') : tab.replace('_', ' ')}
-          </button>
-        ))}
-      </div>
-
-      {/* Tasks List Container */}
-      <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
-          <div className="p-16 text-center bg-slate-900/10 border border-white/5 rounded-2xl space-y-2">
-            <CheckSquare size={36} className="text-slate-600 mx-auto" />
-            <h4 className="text-xs font-bold text-slate-400">{t('tasks.noMilestones')}</h4>
-            <p className="text-[10px] text-slate-500">{t('tasks.goToDashboard')}</p>
+      {/* Kanban Board Container */}
+      <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
+        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="flex gap-6 h-full items-start">
+            {cols.map(col => (
+              <DroppableColumn 
+                key={col.id} 
+                id={col.id} 
+                title={col.title} 
+                icon={col.icon} 
+                tasks={tasks.filter(t => t.status === col.id)} 
+                onTaskClick={(id) => setSubmittingTaskId(id)}
+              />
+            ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredTasks.map(task => {
-              const isAssigned = task.status === 'ASSIGNED';
-              const isInProgress = task.status === 'IN_PROGRESS';
-              const isCompleted = task.status === 'COMPLETED';
-              const isUnderReview = task.status === 'UNDER_REVIEW';
 
-              return (
-                <div
-                  key={task.id}
-                  className="bg-card/45 border border-white/5 hover:border-white/10 transition-all p-6 rounded-2xl flex flex-col justify-between gap-5 relative overflow-hidden"
-                >
-                  {/* Neon active outline for tasks currently worked on */}
-                  {isInProgress && (
-                    <div className="absolute top-0 left-0 w-1.5 h-full bg-cyan-400" />
-                  )}
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-mono text-slate-500 font-extrabold">{task.id}</span>
-                        <h3 className="text-xs lg:text-sm font-extrabold text-white leading-snug">{task.title}</h3>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        {getPriorityBadge(task.priority)}
-                        {getStatusLabel(task.status)}
-                      </div>
-                    </div>
-
-                    <p className="text-slate-400 text-[11px] leading-relaxed font-semibold">{task.description}</p>
-                  </div>
-
-                  <div className="border-t border-white/5 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {t('tasks.targetDueDate')} <strong className="text-slate-300">{task.dueDate}</strong>
-                    </span>
-
-                    {/* Progress Controls */}
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      {isAssigned && (
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'IN_PROGRESS')}
-                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] rounded-xl border border-white/5 hover:border-white/10 transition-colors cursor-pointer"
-                        >
-                          {t('tasks.startCoding')}
-                          <ArrowRight size={12} />
-                        </button>
-                      )}
-
-                      {isInProgress && (
-                        <button
-                          onClick={() => setSubmittingTaskId(task.id)}
-                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] rounded-xl transition shadow-lg shadow-cyan-500/10 cursor-pointer"
-                        >
-                          {t('tasks.submitDeliverable')}
-                          <ChevronRight size={12} />
-                        </button>
-                      )}
-
-                      {isUnderReview && (
-                        <div className="text-[10px] text-slate-500 font-semibold font-mono bg-slate-900/40 px-3 py-1.5 rounded-lg border border-white/5">
-                          {t('tasks.verificationPending')}
-                        </div>
-                      )}
-
-                      {isCompleted && (
-                        <div className="text-[10px] text-emerald-400 font-bold font-mono bg-emerald-500/5 px-3 py-1.5 rounded-lg border border-emerald-500/10">
-                          {t('tasks.clearedForBilling')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Submission detail display if completed/under review */}
-                  {(isUnderReview || isCompleted) && task.deliverableSubmitted && (
-                    <div className="mt-4 p-3 bg-slate-950/40 rounded-xl border border-white/5 space-y-1 font-mono text-[9px] text-slate-400">
-                      <div><strong className="text-slate-300">{t('tasks.filePackage')}</strong> {task.deliverableSubmitted.fileName}</div>
-                      <div><strong className="text-slate-300">{t('tasks.notesStr')}</strong> {task.deliverableSubmitted.notes}</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+          <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }}>
+            {activeDragTask ? <DraggableTaskCard task={activeDragTask} isOverlay /> : null}
+          </DragOverlay>
+        </DndContext>
       </div>
 
       {/* Deliverable Submission Drawer Modal */}

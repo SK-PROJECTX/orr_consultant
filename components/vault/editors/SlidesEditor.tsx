@@ -171,48 +171,40 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
    const handleDragEnd = (event: DragEndEvent) => {
       const { active, over } = event;
       if (over && active.id !== over.id) {
-         setSlides((items) => {
-            const oldIndex = items.findIndex(i => i.id === active.id);
-            const newIndex = items.findIndex(i => i.id === over.id);
-            const newArray = arrayMove(items, oldIndex, newIndex);
-            onChange(JSON.stringify(newArray));
-            return newArray;
-         });
+         const oldIndex = slides.findIndex(i => i.id === active.id);
+         const newIndex = slides.findIndex(i => i.id === over.id);
+         const newArray = arrayMove(slides, oldIndex, newIndex);
+         setSlides(newArray);
+         onChange(JSON.stringify(newArray));
       }
    };
 
    const addSlide = () => {
       const newId = Date.now().toString();
       const newSlide = { id: newId, title: 'New Slide', canvasData: null, bg: '#ffffff' };
-      setSlides(prev => {
-         const updated = [...prev, newSlide];
-         onChange(JSON.stringify(updated));
-         return updated;
-      });
+      const updated = [...slides, newSlide];
+      setSlides(updated);
+      onChange(JSON.stringify(updated));
       setActiveSlideId(newId);
    };
 
    const deleteSlide = (id: string) => {
       if (slides.length <= 1) return alert("Presentations must contain at least one slide.");
-      setSlides(prev => {
-         const updated = prev.filter(s => s.id !== id);
-         onChange(JSON.stringify(updated));
-         if (activeSlideId === id) setActiveSlideId(updated[0].id);
-         return updated;
-      });
+      const updated = slides.filter(s => s.id !== id);
+      setSlides(updated);
+      onChange(JSON.stringify(updated));
+      if (activeSlideId === id) setActiveSlideId(updated[0].id);
    };
 
    const duplicateSlide = (id: string) => {
-      setSlides(prev => {
-         const slideToDup = prev.find(s => s.id === id);
-         if (!slideToDup) return prev;
-         const newId = Date.now().toString();
-         const newSlide = { ...slideToDup, id: newId, title: `${slideToDup.title} (Copy)` };
-         const index = prev.findIndex(s => s.id === id);
-         const updated = [...prev.slice(0, index + 1), newSlide, ...prev.slice(index + 1)];
-         onChange(JSON.stringify(updated));
-         return updated;
-      });
+      const slideToDup = slides.find(s => s.id === id);
+      if (!slideToDup) return;
+      const newId = Date.now().toString();
+      const newSlide = { ...slideToDup, id: newId, title: `${slideToDup.title} (Copy)` };
+      const index = slides.findIndex(s => s.id === id);
+      const updated = [...slides.slice(0, index + 1), newSlide, ...slides.slice(index + 1)];
+      setSlides(updated);
+      onChange(JSON.stringify(updated));
    };
 
    // ---------------------------------------------------------
