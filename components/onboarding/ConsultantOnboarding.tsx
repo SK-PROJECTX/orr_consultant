@@ -279,7 +279,7 @@ export default function ConsultantOnboarding() {
                     <button
                       type="button"
                       onClick={handleAddSkill}
-                      className="bg-primary hover:bg-[#11aa6a] text-slate-950 px-8 py-4 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-2 text-lg shadow-md"
+                      className="bg-primary hover:bg-[lemon] text-slate-950 px-8 py-4 rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-2 text-lg shadow-md"
                     >
                       <Plus size={20} />
                       {t('onboarding.addBtn')}
@@ -444,7 +444,7 @@ export default function ConsultantOnboarding() {
                 type="button"
                 onClick={step === 6 ? handleFinish : handleNext}
                 disabled={step === 1 && !selectedIndustry || (step === 3 && !timezone) || (step === 4 && !ndaAccepted)}
-                className="w-full sm:w-auto bg-primary hover:bg-[#11aa6a] text-slate-950 px-14 py-5 rounded-2xl font-black text-lg tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] flex justify-center items-center gap-2"
+                className="w-full sm:w-auto bg-primary hover:bg-[lemon] text-slate-950 px-14 py-5 rounded-2xl font-black text-lg tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] flex justify-center items-center gap-2"
               >
                 {step === 6 ? t('onboarding.enterPortalBtn') : t('onboarding.nextBtn')}
                 {step < 6 && <ChevronRight size={24} />}
