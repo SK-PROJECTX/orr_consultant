@@ -55,7 +55,7 @@ export const en = {
     of: 'of',
     categorization: 'Consultant Categorization',
     step1Title: 'Select Primary Specialization',
-    step1Desc: 'Categorize your consultant contract to ensure the ORR dashboard serves matching client job briefs and secure PM resources.',
+    step1Desc: 'Select the main advisory area that best reflects your professional expertise. This will help ORR match you with suitable client briefs, project managers, and internal support resources.',
     step2Title: 'Map Technical Skills',
     step2Desc: 'Adjust or add custom engineering credentials. These are audited by our administrator for task capability matching.',
     step3Title: 'Availability & Timezone',
@@ -83,12 +83,12 @@ export const en = {
     nextBtn: 'NEXT',
     enterPortalBtn: 'ENTER PORTAL',
     industries: {
-      strategyAdvisory: 'Strategy Advisory & ESG',
-      strategyAdvisoryDesc: 'Supply chain carbon scoping, Scope-3 greenhouse gas auditing, ESG frameworks, circular economy logistics policy.',
-      operationalSystems: 'Operational Systems Engineering',
-      operationalSystemsDesc: 'Relational provenance ledger databases, OAuth2 secure transaction transfers, mass-balance calculations, scanner APIs.',
+      strategyAdvisory: 'Strategy Advisory & Compliance',
+      strategyAdvisoryDesc: 'For consultants who support clients with strategic decisions, compliance obligations, operational restructuring, market-entry challenges, governance frameworks, and practical problem-solving across regulated or complex business environments.',
+      operationalSystems: 'Operational Systems & Infrastructure',
+      operationalSystemsDesc: 'For IT consultants who help clients design, implement, and optimise operational systems and infrastructure through system architecture, workflow automation, digital integrations, resilience planning, and structured technical support.',
       livingSystems: 'Living Systems Regeneration',
-      livingSystemsDesc: 'LiDAR canopy structural diagnostics, deep-core soil organic carbon testing, bio-acoustic indicator species logging.'
+      livingSystemsDesc: 'For living-systems consultants who help clients assess, restore, and optimise agricultural, ecological, and rural assets through regenerative land management, soil and biodiversity diagnostics, forestry advisory, environmental monitoring, and nature-based project implementation.'
     },
     hardwareChecks: {
       encryptedWorkstation: 'Encrypted Workstation Drive (AES-256 enabled)',

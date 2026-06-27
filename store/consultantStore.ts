@@ -185,7 +185,7 @@ interface ConsultantState {
     timezone: string;
     ndaAccepted: boolean;
   } | null;
-  completeOnboarding: (industry: string, skills: string[], itCapabilities: string[], timezone: string, ndaAccepted: boolean) => void;
+  completeOnboarding: (industry: string, skills: string[], itCapabilities: string[], timezone: string, ndaAccepted: boolean, consultantId?: string) => void;
 
   // Jobs
   availableJobs: JobOffer[];
@@ -536,7 +536,7 @@ export const useConsultantStore = create<ConsultantState>()(
   // Onboarding State
   onboardingCompleted: false,
   onboardingData: null,
-  completeOnboarding: (industry, skills, itCapabilities, timezone, ndaAccepted) => {
+  completeOnboarding: (industry, skills, itCapabilities, timezone, ndaAccepted, consultantId) => {
     set({
       onboardingCompleted: true,
       onboardingData: { industry, skills, itCapabilities, timezone, ndaAccepted }

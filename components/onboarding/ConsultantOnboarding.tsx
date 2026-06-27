@@ -8,10 +8,13 @@ import {
   Terminal,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Plus,
   Laptop,
   CheckCircle,
-  X
+  X,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { LanguageToggle } from '@/components/LanguageToggle';
@@ -44,6 +47,7 @@ export default function ConsultantOnboarding() {
   const { t } = useTranslation();
 
   const [step, setStep] = useState(1);
+  const [consultantId, setConsultantId] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState('');
@@ -115,6 +119,10 @@ export default function ConsultantOnboarding() {
 
   const handleNext = () => {
     if (step === 1 && !selectedIndustry) return;
+    if (step === 2 && !consultantId) {
+      alert('Please enter your Consultant ID to proceed.');
+      return;
+    }
     if (step === 3 && !timezone) return;
     if (step === 4 && !ndaAccepted) {
       alert(t('onboarding.ndaWarning'));
@@ -132,8 +140,8 @@ export default function ConsultantOnboarding() {
   };
 
   const handleFinish = () => {
-    if (!selectedIndustry || !ndaAccepted) return;
-    completeOnboarding(selectedIndustry, skills, capabilities, timezone, ndaAccepted);
+    if (!selectedIndustry || !ndaAccepted || !consultantId) return;
+    completeOnboarding(selectedIndustry, skills, capabilities, timezone, ndaAccepted, consultantId);
   };
 
   return (
@@ -261,6 +269,21 @@ export default function ConsultantOnboarding() {
 
               {step === 2 && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 fill-mode-both max-w-3xl">
+                  {/* Consultant ID Input */}
+                  <div className="space-y-4">
+                    <span className="text-sm font-black uppercase text-slate-500 tracking-wider font-mono">Consultant ID Verification</span>
+                    <div className="flex gap-3 bg-card border border-white/10 rounded-2xl p-2 focus-within:border-primary transition-colors shadow-lg">
+                      <input
+                        type="text"
+                        placeholder="Enter your ORR Consultant ID (e.g. ORR-1094)..."
+                        value={consultantId}
+                        onChange={e => setConsultantId(e.target.value)}
+                        className="flex-1 bg-transparent px-5 py-4 text-base font-semibold text-white focus:outline-none focus:border-transparent placeholder-slate-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
                   {/* Custom skill add input */}
                   <div className="flex gap-3 bg-card border border-white/10 rounded-2xl p-2 focus-within:border-primary transition-colors shadow-lg">
                     <input
@@ -318,19 +341,21 @@ export default function ConsultantOnboarding() {
                 <div className="space-y-6 max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 fill-mode-both">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-bold text-slate-400">{t('onboarding.timezonePlaceholder')}</label>
-                    <select
-                      value={timezone}
-                      onChange={(e) => setTimezone(e.target.value)}
-                      className="bg-card border border-white/10 rounded-2xl p-4 text-white text-lg focus:outline-none focus:border-primary transition-colors cursor-pointer"
-                    >
+                    <div className="relative">
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full bg-card border border-white/10 rounded-2xl p-4 pr-14 text-white text-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer appearance-none truncate shadow-lg hover:border-white/20"
+                      >
                       <option value="" disabled>{t('onboarding.timezonePlaceholder')}</option>
-                      <option value="GMT">GMT (London, Lisbon)</option>
-                      <option value="CET">CET (Rome, Paris, Berlin)</option>
-                      <option value="EST">EST (New York, Toronto)</option>
-                      <option value="PST">PST (Los Angeles, Vancouver)</option>
-                      <option value="JST">JST (Tokyo, Seoul)</option>
-                      <option value="AEST">AEST (Sydney, Melbourne)</option>
-                    </select>
+                      {Intl.supportedValuesOf('timeZone').map((tz) => (
+                        <option key={tz} value={tz}>
+                          {tz.replace(/_/g, ' ')}
+                        </option>
+                      ))}
+                      </select>
+                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors peer-focus:text-primary" size={24} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -349,7 +374,22 @@ export default function ConsultantOnboarding() {
                           {t('onboarding.ndaAgreementText')}
                         </p>
                         
-                        <label className="flex items-center gap-3 cursor-pointer mt-4 p-4 border border-white/5 rounded-xl hover:bg-white/5 transition-colors">
+                        <div className="mt-4 border border-white/10 bg-slate-900/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              <FileText size={20} />
+                            </div>
+                            <div>
+                              <div className="font-bold text-white text-sm">ORR Solutions Mutual NDA</div>
+                              <div className="text-xs text-slate-400 mt-0.5">PDF Document</div>
+                            </div>
+                          </div>
+                          <a href="#" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary text-sm font-bold hover:underline bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-lg transition-colors w-full sm:w-auto justify-center">
+                            Review Document <ExternalLink size={14} />
+                          </a>
+                        </div>
+                        
+                        <label className="flex items-center gap-3 cursor-pointer mt-6 p-4 border border-white/5 rounded-xl hover:bg-white/5 transition-colors">
                           <input
                             type="checkbox"
                             checked={ndaAccepted}
@@ -443,7 +483,7 @@ export default function ConsultantOnboarding() {
               <button
                 type="button"
                 onClick={step === 6 ? handleFinish : handleNext}
-                disabled={step === 1 && !selectedIndustry || (step === 3 && !timezone) || (step === 4 && !ndaAccepted)}
+                disabled={step === 1 && !selectedIndustry || (step === 2 && !consultantId) || (step === 3 && !timezone) || (step === 4 && !ndaAccepted)}
                 className="w-full sm:w-auto bg-primary hover:bg-[lemon] text-slate-950 px-14 py-5 rounded-2xl font-black text-lg tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] flex justify-center items-center gap-2"
               >
                 {step === 6 ? t('onboarding.enterPortalBtn') : t('onboarding.nextBtn')}
