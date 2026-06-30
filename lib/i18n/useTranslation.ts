@@ -18,9 +18,14 @@ export function useTranslation() {
   const language = useConsultantStore((state) => state.language) || 'en';
   const dictionary = dictionaries[language] as Dictionary;
 
-  const t = (key: string): string => {
-    const value = getNestedValue(dictionary, key);
-    return value || key; // Fallback to key if translation is missing
+  const t = (key: string, params?: Record<string, string | number>): string => {
+    let value = getNestedValue(dictionary, key);
+    if (typeof value === 'string' && params) {
+      Object.entries(params).forEach(([k, v]) => {
+        value = (value as string).replace(new RegExp(`{{${k}}}`, 'g'), String(v));
+      });
+    }
+    return (value as string) || key; // Fallback to key if translation is missing
   };
 
   return { t, language };

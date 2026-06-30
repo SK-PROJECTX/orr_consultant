@@ -7,12 +7,14 @@ export interface ProfileData {
   photoUrl?: string;
   firstName: string;
   lastName: string;
+  displayName?: string;
   jobTitle: string;
   headline: string;
   bio: string;
   gender: string;
   dateOfBirth: string;
   nationality: string;
+  country: string;
   languages: string[];
   timezone: string;
   email: string;
@@ -57,6 +59,9 @@ export interface ProfileData {
     maxDailyConsultations: number | '';
     consultationDurationOptions: number[];
   };
+  
+  // 5. System Fields
+  profileStatus: 'Draft' | 'Submitted' | 'Pending Review' | 'Approved' | 'Needs Clarification' | 'Rejected' | 'Suspended';
 }
 export interface JobOffer {
   id: string;
@@ -180,12 +185,76 @@ interface ConsultantState {
   onboardingCompleted: boolean;
   onboardingData: {
     industry: string;
+    secondaryIndustries: string[];
     skills: string[];
+    skillProficiencies: Record<string, string>;
+    skillYearsExperience: Record<string, string>;
+    customSkills: { name: string; status: 'Pending Review' | 'Approved' | 'Rejected' | 'Merged' }[];
     itCapabilities: string[];
+    itConfidence: string;
+    softwareExperience: string[];
+    aiFamiliarity: string;
+    dataHandling: string[];
+    professionalSummary: string;
+    sectorExperience: string[];
+    professionalEvidence: string;
+    cvFile: File | null;
+    portfolioUrl: string;
+    isAvailable: boolean;
+    weeklyCapacity: string;
+    preferredRoles: string[];
+    workModes: string[];
+    geoCoverage: string;
+    languages: string[];
+    hourlyRate: string;
+    currency: string;
+    engagementTypes: string[];
+    rightToWork: boolean;
+    conflictOfInterest: boolean;
+    conflictDetails: string;
+    dataProtection: boolean;
     timezone: string;
     ndaAccepted: boolean;
   } | null;
-  completeOnboarding: (industry: string, skills: string[], itCapabilities: string[], timezone: string, ndaAccepted: boolean, consultantId?: string) => void;
+  completeOnboarding: (
+    industry: string, 
+    secondaryIndustries: string[], 
+    skills: string[], 
+    skillProficiencies: Record<string, string>,
+    skillYearsExperience: Record<string, string>,
+    customSkills: { name: string; status: 'Pending Review' | 'Approved' | 'Rejected' | 'Merged' }[], 
+    itCapabilities: string[],
+    itConfidence: string,
+    softwareExperience: string[], 
+    aiFamiliarity: string,
+    dataHandling: string[],
+    professionalSummary: string,
+    sectorExperience: string[],
+    professionalEvidence: string,
+    cvFile: File | null,
+    portfolioUrl: string,
+    isAvailable: boolean,
+    weeklyCapacity: string,
+    preferredRoles: string[],
+    workModes: string[],
+    geoCoverage: string,
+    languages: string[],
+    hourlyRate: string,
+    currency: string,
+    engagementTypes: string[],
+    rightToWork: boolean,
+    conflictOfInterest: boolean,
+    conflictDetails: string,
+    dataProtection: boolean,
+    timezone: string, 
+    ndaAccepted: boolean, 
+    consultantId?: string, 
+    fullName?: string, 
+    displayName?: string, 
+    phone?: string, 
+    country?: string, 
+    jobTitle?: string
+  ) => void;
 
   // Jobs
   availableJobs: JobOffer[];
@@ -483,6 +552,7 @@ export const useConsultantStore = create<ConsultantState>()(
     gender: '',
     dateOfBirth: '',
     nationality: '',
+    country: '',
     languages: [],
     timezone: '',
     email: '',
@@ -520,7 +590,8 @@ export const useConsultantStore = create<ConsultantState>()(
       bufferTimeMinutes: 15,
       maxDailyConsultations: '',
       consultationDurationOptions: [30, 60],
-    }
+    },
+    profileStatus: 'Draft'
   },
   updateProfile: (data) => {
     set(state => ({
@@ -536,11 +607,20 @@ export const useConsultantStore = create<ConsultantState>()(
   // Onboarding State
   onboardingCompleted: false,
   onboardingData: null,
-  completeOnboarding: (industry, skills, itCapabilities, timezone, ndaAccepted, consultantId) => {
-    set({
+  completeOnboarding: (industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted, consultantId, fullName, displayName, phone, country, jobTitle) => {
+    set(state => ({
       onboardingCompleted: true,
-      onboardingData: { industry, skills, itCapabilities, timezone, ndaAccepted }
-    });
+      onboardingData: { industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted },
+      profileData: {
+        ...state.profileData,
+        profileStatus: 'Pending Review',
+        ...(fullName ? { firstName: fullName.split(' ')[0] || '', lastName: fullName.split(' ').slice(1).join(' ') || '' } : {}),
+        ...(displayName ? { displayName } : {}),
+        ...(phone ? { phone } : {}),
+        ...(country ? { country } : {}),
+        ...(jobTitle ? { jobTitle } : {})
+      }
+    }));
     
     // Add success notification
     get().addNotification(
