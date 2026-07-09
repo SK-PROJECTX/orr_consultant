@@ -32,6 +32,7 @@ export const en = {
   },
   sidebar: {
     dashboard: 'Dashboard',
+    opportunities: 'Opportunities',
     wallet: 'Wallet & Invoices',
     tasks: 'Task Board',
     vault: 'Document Vault',

@@ -22,7 +22,10 @@ export default function DashboardTab() {
   const onboardingData = useConsultantStore(state => state.onboardingData);
   const availableJobs = useConsultantStore(state => state.availableJobs);
   const activeJobs = useConsultantStore(state => state.activeJobs);
-  const acceptJob = useConsultantStore(state => state.acceptJob);
+  const compliancePendingJobs = useConsultantStore(state => state.compliancePendingJobs);
+  const interestedJobs = useConsultantStore(state => state.interestedJobs);
+  const expressInterest = useConsultantStore(state => state.expressInterest);
+  const confirmCompliance = useConsultantStore(state => state.confirmCompliance);
   const rejectJob = useConsultantStore(state => state.rejectJob);
   
   const walletBalance = useConsultantStore(state => state.walletBalance);
@@ -208,11 +211,11 @@ export default function DashboardTab() {
                               {t('dashboard.declineTender')}
                             </button>
                             <button
-                              onClick={() => acceptJob(job.id)}
+                              onClick={() => expressInterest(job.id)}
                               className="flex items-center gap-1.5 px-6 py-2.5 bg-primary hover:bg-lemon text-background font-black text-xs rounded-xl transition shadow-lg shadow-primary/10 cursor-pointer"
                             >
                               <Check size={14} />
-                              {t('dashboard.acceptContract')}
+                              Express Interest
                             </button>
                           </div>
                         </div>
@@ -223,6 +226,34 @@ export default function DashboardTab() {
               </div>
             )}
           </div>
+
+          {/* Pending Compliance Section */}
+          {compliancePendingJobs.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                <ShieldAlert size={18} className="text-amber-500" />
+                Pending Compliance & NDA
+              </h2>
+              <div className="space-y-4">
+                {compliancePendingJobs.map(job => (
+                  <div key={job.id} className="p-5 bg-amber-950/20 border border-amber-500/30 rounded-2xl">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-sm font-bold text-amber-500">{job.title}</h3>
+                        <p className="text-xs text-slate-400 mt-1">You have been selected. Confirm you have no conflict of interest and re-sign the NDA to gain project access.</p>
+                      </div>
+                      <button 
+                        onClick={() => confirmCompliance(job.id)}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Confirm Compliance
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Closest Upcoming Deadlines List */}
           <div className="space-y-4">

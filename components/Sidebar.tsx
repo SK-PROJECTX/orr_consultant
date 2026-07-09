@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   Bell,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Briefcase
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -52,6 +53,7 @@ export default function Sidebar({ openNotifications }: SidebarProps) {
 
   const menuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: LayoutDashboard },
+    { id: 'opportunities', label: t('sidebar.opportunities') || 'Opportunities', icon: Briefcase },
     { id: 'wallet', label: t('sidebar.wallet'), icon: Wallet },
     { id: 'tasks', label: t('sidebar.tasks'), icon: CheckSquare },
     { id: 'vault', label: t('sidebar.vault'), icon: FolderLock },
