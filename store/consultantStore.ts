@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { OpportunityStage } from '@/components/tabs/OpportunitiesTab';
 
 // Types
 export interface ProfileData {
