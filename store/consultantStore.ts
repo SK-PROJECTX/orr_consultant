@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { OpportunityStage } from '@/components/tabs/OpportunitiesTab';
 
 // Types
 export interface ProfileData {
@@ -258,8 +259,11 @@ interface ConsultantState {
 
   // Jobs
   availableJobs: JobOffer[];
+  interestedJobs: JobOffer[];
+  compliancePendingJobs: JobOffer[];
   activeJobs: Job[];
-  acceptJob: (jobId: string) => void;
+  expressInterest: (jobId: string) => void;
+  confirmCompliance: (jobId: string) => void;
   rejectJob: (jobId: string) => void;
 
   // Wallet & Invoices
@@ -341,6 +345,25 @@ const INITIAL_JOB_OFFERS: JobOffer[] = [
       'Provenance batch ledger relational schema',
       'HMAC OAuth2 transfer endpoints',
       'Automated Mass-balance validation triggers'
+    ]
+  },
+  {
+    id: 'ORR-PROJ-000001',
+    title: 'Q3 Market Expansion Strategy',
+    industry: 'Strategy',
+    clientSector: 'Enterprise',
+    rate: '$200/hr',
+    duration: '4 Weeks',
+    description: 'We are seeking an experienced consultant to analyze European market entry feasibility and regulatory requirements for a leading enterprise client in the sector.',
+    scope: [
+      'Analyze European market entry feasibility',
+      'Assess regulatory requirements',
+      'Deliver a comprehensive strategic roadmap'
+    ],
+    deliverables: [
+      'Market Feasibility Report',
+      'Regulatory Compliance Checklist',
+      'Strategic Expansion Roadmap'
     ]
   }
 ];
@@ -482,10 +505,61 @@ const INITIAL_NOTIFICATIONS: AppNotification[] = [
   }
 ];
 
+export interface Opportunity {
+  id: string;
+  title: string;
+  dateAssigned: string;
+  status: string;
+  stage: OpportunityStage;
+  responseTimestamp?: string;
+  lastUpdated?: string;
+  createdBy?: string;
+  sentTo?: string[];
+  summaryVersion?: string;
+}
+
+interface ConsultantState {
+  isRegistered: boolean;
+  isOnboarded: boolean;
+  opportunities: Opportunity[];
+  setRegistered: (status: boolean) => void;
+  setOnboarded: (status: boolean) => void;
+  updateOpportunityStage: (id: string, stage: OpportunityStage, status: string) => void;
+}
+
 // Zustand Store implementation
 export const useConsultantStore = create<ConsultantState>()(
   persist(
     (set, get) => ({
+      isRegistered: false,
+      isOnboarded: false,
+      opportunities: [
+        {
+          id: 'ORR-OPP-000001',
+          title: 'Strategic Energy Advisory',
+          dateAssigned: 'Oct 24, 2023',
+          status: 'New Opportunity',
+          stage: 'EXPRESSION_OF_INTEREST',
+          lastUpdated: new Date().toISOString(),
+          createdBy: 'Admin System',
+          sentTo: ['ORR-CONS-8492'],
+          summaryVersion: 'v1.0'
+        }
+      ],
+      setRegistered: (status) => set({ isRegistered: status }),
+      setOnboarded: (status) => set({ isOnboarded: status }),
+      updateOpportunityStage: (id, stage, status) => set((state) => ({
+        opportunities: state.opportunities.map(opp => 
+          opp.id === id ? { 
+            ...opp, 
+            stage, 
+            status,
+            ...(stage !== 'EXPRESSION_OF_INTEREST' && !opp.responseTimestamp ? { responseTimestamp: new Date().toISOString() } : {}),
+            lastUpdated: new Date().toISOString()
+          } : opp
+        )
+      })),
+
       // Language State
       language: 'en',
       setLanguage: (lang) => set({ language: lang }),
@@ -632,9 +706,28 @@ export const useConsultantStore = create<ConsultantState>()(
 
   // Jobs
   availableJobs: INITIAL_JOB_OFFERS,
+  interestedJobs: [],
+  compliancePendingJobs: [],
   activeJobs: [],
-  acceptJob: (jobId) => {
+  
+  expressInterest: (jobId) => {
     const jobOffer = get().availableJobs.find(j => j.id === jobId);
+    if (!jobOffer) return;
+
+    set(state => ({
+      interestedJobs: [...state.interestedJobs, jobOffer],
+      availableJobs: state.availableJobs.filter(j => j.id !== jobId),
+    }));
+
+    get().addNotification(
+      'Interest Registered',
+      `You have expressed interest in ${jobOffer.title}. The Admin/PM will review your profile for consideration.`,
+      'SYSTEM'
+    );
+  },
+
+  confirmCompliance: (jobId) => {
+    const jobOffer = get().compliancePendingJobs.find(j => j.id === jobId);
     if (!jobOffer) return;
 
     const acceptedJob: Job = {
@@ -643,10 +736,9 @@ export const useConsultantStore = create<ConsultantState>()(
       status: 'ACTIVE'
     };
 
-    // Move to active, remove from available
     set(state => ({
       activeJobs: [...state.activeJobs, acceptedJob],
-      availableJobs: state.availableJobs.filter(j => j.id !== jobId),
+      compliancePendingJobs: state.compliancePendingJobs.filter(j => j.id !== jobId),
       // Automatically add new tasks based on the job deliverables!
       tasks: [
         ...state.tasks,
@@ -655,21 +747,19 @@ export const useConsultantStore = create<ConsultantState>()(
           jobId: jobId,
           title: `Submit: ${del}`,
           description: `Deliverable requirement: Complete comprehensive partner verification matching scope: ${jobOffer.scope[idx] || del}`,
-          dueDate: new Date(Date.now() + (idx + 1) * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1wk, 2wk out
+          dueDate: new Date(Date.now() + (idx + 1) * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           priority: idx === 0 ? 'HIGH' : 'MEDIUM' as Task['priority'],
           status: 'ASSIGNED' as Task['status']
         }))
       ]
     }));
 
-    // Notify user
     get().addNotification(
-      'Project Scope Accepted',
-      `You accepted: ${jobOffer.title}. Security directives and survey files in the Vault are unlocked.`,
+      'Compliance Confirmed',
+      `You confirmed compliance for: ${jobOffer.title}. The PM will now activate your workspace access.`,
       'JOB'
     );
 
-    // Simulated PM message welcoming them
     setTimeout(() => {
       set(state => ({
         messages: [
@@ -677,7 +767,7 @@ export const useConsultantStore = create<ConsultantState>()(
           {
             id: `MSG-${Date.now()}`,
             sender: 'PROJECT_MANAGER',
-            text: `Perfect! Thank you for accepting the "${jobOffer.title}" contract. I have unlocked the related documents in the Vault. Please review the directives for "${jobOffer.title}" to coordinate our diagnostics. Let me know if you want to book a kickoff sync!`,
+            text: `Perfect! Thank you for confirming compliance on the "${jobOffer.title}" contract. I am preparing your workspace access. Please review the assignment brief. Let me know if you want to book a kickoff sync!`,
             timestamp: new Date().toISOString()
           }
         ]
@@ -1016,7 +1106,9 @@ export const useConsultantStore = create<ConsultantState>()(
         language: state.language,
         onboardingCompleted: state.onboardingCompleted,
         onboardingData: state.onboardingData,
-        profileData: state.profileData
+        profileData: state.profileData,
+        isAuthenticated: state.isAuthenticated,
+        is2faPending: state.is2faPending
       }),
     }
   )
