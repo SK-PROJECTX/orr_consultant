@@ -10,7 +10,9 @@ import {
   Clock,
   FilePlus,
   X,
-  File
+  File,
+  Sparkles,
+  Bot
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
@@ -18,10 +20,17 @@ export default function ChatTab() {
   const { t } = useTranslation();
   const messages = useConsultantStore(state => state.messages);
   const sendChatMessage = useConsultantStore(state => state.sendChatMessage);
+  const fetchMessages = useConsultantStore(state => state.fetchMessages);
+  const clearMessages = useConsultantStore(state => state.clearMessages);
+
+  const lastFetchedRef = useRef<string | null>(null);
 
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [attachment, setAttachment] = useState<{name: string, url: string, type: string} | null>(null);
+  const [activeContact, setActiveContact] = useState('pm');
+  const [directory, setDirectory] = useState<any[]>([]);
+
   const streamEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +38,45 @@ export default function ChatTab() {
   const scrollToBottom = () => {
     streamEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Fetch directory on mount
+  useEffect(() => {
+    const cNum = sessionStorage.getItem('consultant_number');
+    if (!cNum) return;
+    fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`)
+      .then(res => res.json())
+      .then(resData => {
+        let data = resData;
+        while (data && !Array.isArray(data) && data.data !== undefined) {
+          data = data.data;
+        }
+        if (Array.isArray(data)) {
+          setDirectory(data);
+          if (data.length > 0) setActiveContact(data[0].id);
+        }
+      })
+      .catch(err => console.error('Failed to fetch directory', err));
+  }, []);
+
+  // Poll messages for activeContact
+  useEffect(() => {
+    if (!activeContact) return;
+    
+    clearMessages();
+    lastFetchedRef.current = null;
+    
+    const fetchFn = async () => {
+      await fetchMessages(activeContact, lastFetchedRef.current || undefined);
+      const msgs = useConsultantStore.getState().messages;
+      if (msgs.length > 0) {
+        lastFetchedRef.current = msgs[msgs.length - 1].timestamp;
+      }
+    };
+    
+    fetchFn();
+    const interval = setInterval(fetchFn, 10000);
+    return () => clearInterval(interval);
+  }, [activeContact]);
 
   useEffect(() => {
     scrollToBottom();
@@ -45,11 +93,27 @@ export default function ChatTab() {
     }
   }, [messages]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() && !attachment) return;
 
-    sendChatMessage(inputText.trim(), attachment || undefined);
+    const optimisticMsg = {
+      id: `temp-${Date.now()}`,
+      sender: 'CONSULTANT' as const,
+      text: inputText.trim(),
+      timestamp: new Date().toISOString(),
+      attachment: attachment ? { name: attachment.name, url: attachment.url, type: attachment.type } : undefined
+    };
+    
+    useConsultantStore.setState(state => ({ messages: [...state.messages, optimisticMsg] }));
+
+    try {
+      sendChatMessage(inputText.trim(), attachment || undefined, activeContact);
+    } catch (e) {
+      console.error("Failed to send", e);
+      useConsultantStore.setState(state => ({ messages: state.messages.filter(m => m.id !== optimisticMsg.id) }));
+    }
+    
     setInputText('');
     setAttachment(null);
   };
@@ -76,7 +140,7 @@ export default function ChatTab() {
   ];
 
   const handleSuggestionClick = (text: string) => {
-    sendChatMessage(text);
+    sendChatMessage(text, undefined, activeContact);
   };
 
   return (
@@ -93,73 +157,50 @@ export default function ChatTab() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-        {/* Left Column: Secure Channels contact card */}
-        <div className="space-y-4">
-          <span className="text-xs font-bold uppercase text-slate-500 tracking-wider block">{t('chat.secureConnections')}</span>
-
-          {/* Modern Contact Card */}
-          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md relative overflow-hidden flex items-center gap-4 shadow-lg shadow-black/20">
-            <div className="absolute right-0 top-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-white/10 flex items-center justify-center text-primary relative shadow-inner">
-              <User size={20} className="text-slate-300" />
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm shadow-emerald-500/50" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-bold text-white truncate">Marcus Vance</h4>
-              <p className="text-[10px] text-emerald-400 flex items-center gap-1.5 mt-1 font-semibold">
-                <ShieldCheck size={12} />
-                {t('chat.secureLinkActive')}
-              </p>
-            </div>
+      <div className="flex bg-card backdrop-blur-xl border border-white/10 rounded-3xl h-[600px] shadow-2xl shadow-black/40 overflow-hidden">
+        
+        {/* Contacts Sidebar */}
+        <div className="w-64 border-r border-white/10 bg-white/5 flex flex-col shrink-0 hidden md:flex">
+          <div className="p-4 border-b border-white/10 font-black text-white text-sm flex items-center gap-2">
+            <User size={16} className="text-primary" />
+            Directory
           </div>
-
-          {/* Elegant Session Details */}
-          <div className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-3 shadow-lg shadow-black/20 backdrop-blur-sm">
-            <div className="flex gap-2 items-center font-bold text-slate-300 text-xs mb-3 pb-3 border-b border-white/5">
-              <Terminal size={14} className="text-primary" />
-              {t('chat.sessionDetails')}
-            </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-medium">{t('chat.gateway')}</span>
-                <span className="font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-white/5">ORR-SECURE-9</span>
+          <div className="flex-1 overflow-y-auto">
+            {directory.map(c => (
+              <div 
+                key={c.id} 
+                onClick={() => setActiveContact(c.id)}
+                className={`p-4 border-b border-white/5 cursor-pointer transition-colors flex flex-col gap-1 ${activeContact === c.id ? 'bg-white/10 border-l-2 border-l-primary' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
+              >
+                <span className="text-sm font-bold text-white">{c.name}</span>
+                <span className="text-[10px] uppercase font-mono text-slate-400">{c.role}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-medium">{t('chat.key')}</span>
-                <span className="font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-white/5">RSA-4096-AES</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-medium">{t('chat.logPolicy')}</span>
-                <span className="text-emerald-400 font-medium">{t('chat.complianceArchival')}</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Right 3 Columns: Secure Chat Stream */}
-        <div className="lg:col-span-3 flex flex-col bg-card backdrop-blur-xl border border-white/10 rounded-3xl h-[560px] shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 relative">
 
           {/* Channel topbar */}
           <div className="px-6 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md flex justify-between items-center select-none z-10 relative shadow-sm">
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                {t('chat.pmLiaisonChat')}
+                {directory.find(c => c.id === activeContact)?.name || 'Project Manager'}
               </h3>
               <p className="text-[10px] text-slate-400 font-mono">{t('chat.channelNode')}</p>
             </div>
-            <span className="text-[10px] font-semibold text-primary flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20 shadow-inner">
-              <Clock size={12} className="animate-spin-slow" />
-              {t('chat.realTimeSyncActive')}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-semibold text-primary flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20 shadow-inner">
+                <Clock size={12} className="animate-spin-slow" />
+                {t('chat.realTimeSyncActive')}
+              </span>
+            </div>
           </div>
 
           {/* Active message list */}
           <div className="flex-1 p-6 overflow-y-auto space-y-6 relative">
             {messages.map(msg => {
-              const isConsultant = msg.sender === 'CONSULTANT';
+              const isConsultant = msg.sender === 'CONSULTANT' || msg.sender === 'me';
               return (
                 <div
                   key={msg.id}
@@ -174,6 +215,9 @@ export default function ChatTab() {
 
                   {/* Bubble content */}
                   <div className={`space-y-1.5 max-w-[75%]`}>
+                    <span className={`text-[10px] font-bold text-slate-400 block px-1 ${isConsultant ? 'text-right' : 'text-left'}`}>
+                      {isConsultant ? 'Consultant' : (directory.find(c => c.id === activeContact)?.name || 'Project Manager')}
+                    </span>
                     <div className={`px-4 py-3 text-sm leading-relaxed font-medium shadow-md ${isConsultant
                         ? 'bg-gradient-to-br from-primary to-[#11aa6a] text-slate-950 rounded-2xl rounded-br-sm'
                         : 'bg-slate-800/80 backdrop-blur-sm border border-white/5 text-slate-200 rounded-2xl rounded-bl-sm'
@@ -195,7 +239,7 @@ export default function ChatTab() {
                       {msg.text && <div>{msg.text}</div>}
                     </div>
                     <span className={`text-[10px] text-slate-500 block font-medium ${isConsultant ? 'text-right' : 'text-left'}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(msg.created_at || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
 
@@ -209,7 +253,6 @@ export default function ChatTab() {
               );
             })}
 
-            {/* Smart Typing Indicator */}
             {isTyping && (
               <div className="flex gap-3 justify-start items-end animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
@@ -302,10 +345,8 @@ export default function ChatTab() {
               </button>
             </form>
           </div>
-
         </div>
       </div>
-
     </div>
   );
 }

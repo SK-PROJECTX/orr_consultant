@@ -23,8 +23,6 @@ import {
   Laptop
 } from 'lucide-react';
 
-
-
 export default function DashboardLayout({
   children,
 }: {
@@ -40,15 +38,40 @@ export default function DashboardLayout({
   const markNotificationRead = useConsultantStore(state => state.markNotificationRead);
   const clearNotifications = useConsultantStore(state => state.clearNotifications);
   const logoutConsultant = useConsultantStore(state => state.logoutConsultant);
+  const profileStatus = useConsultantStore(state => state.profileData.profileStatus);
+  const fetchJobs = useConsultantStore(state => state.fetchJobs);
+  const fetchTasks = useConsultantStore(state => state.fetchTasks);
+  const fetchInvoices = useConsultantStore(state => state.fetchInvoices);
+  const fetchDocuments = useConsultantStore(state => state.fetchDocuments);
+  const fetchMessages = useConsultantStore(state => state.fetchMessages);
+  const fetchMeetings = useConsultantStore(state => state.fetchMeetings);
+  const fetchNotifications = useConsultantStore(state => state.fetchNotifications);
+  const fetchProfile = useConsultantStore(state => state.fetchProfile);
 
   const [showAlertLog, setShowAlertLog] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Initial Data Fetch
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchProfile();
+    }
+    if (isAuthenticated && onboardingCompleted) {
+      fetchJobs();
+      fetchTasks();
+      fetchInvoices();
+      fetchDocuments();
+      fetchMessages();
+      fetchMeetings();
+      fetchNotifications();
+    }
+  }, [isAuthenticated, onboardingCompleted, fetchProfile, fetchJobs, fetchTasks, fetchInvoices, fetchDocuments, fetchMessages, fetchMeetings, fetchNotifications]);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const isAuthPage = pathname === '/signin' || pathname === '/register';
+  const isAuthPage = pathname === '/signin' || pathname === '/register' || pathname === '/verify';
 
   useEffect(() => {
     if (isMounted && !isAuthenticated && !isAuthPage) {
@@ -102,6 +125,33 @@ export default function DashboardLayout({
     return <ConsultantOnboarding />;
   }
 
+  // Sheet 2 & 3 Limited Access States
+  // Pending Review & Needs Clarification: Consultant can view profile, edit certain profile fields, and see pending status. 
+  // Rejected & Suspended & Archived: No operational portal access.
+  const isPendingReview = profileStatus === 'Pending Review' || profileStatus === 'Needs Clarification';
+  const isRestrictedPath = isPendingReview && pathname !== '/profile';
+
+  const isBlocked = ['Rejected', 'Suspended', 'Archived'].includes(profileStatus);
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-white px-6">
+        <ShieldAlert className="w-16 h-16 text-red-500 mb-6" />
+        <h2 className="text-3xl font-extrabold mb-4">Access Denied</h2>
+        <p className="text-slate-400 text-center max-w-md mb-8">
+          Your account status is currently: <strong className="text-white">{profileStatus}</strong>. 
+          You do not have access to the ORR consultant portal. Please contact your administrator.
+        </p>
+        <button 
+          onClick={logoutConsultant}
+          className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-semibold transition"
+        >
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+
   const getAlertIcon = (type: string) => {
     switch (type) {
       case 'PAYMENT':
@@ -125,7 +175,24 @@ export default function DashboardLayout({
       {/* Scrolling central canvas */}
       <main className="flex-1 h-screen overflow-y-auto px-6 py-8 lg:p-12 z-10 w-full">
         <div className="max-w-6xl mx-auto animate-in fade-in duration-300">
-          {children}
+          {isRestrictedPath ? (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center text-white px-6 py-20">
+              <ShieldCheck className="w-20 h-20 text-primary mb-6" />
+              <h2 className="text-3xl font-extrabold mb-4 text-center">Restricted Access</h2>
+              <p className="text-slate-400 text-center max-w-md mb-8 leading-relaxed">
+                Your profile is currently <strong className="text-white">{profileStatus}</strong>. 
+                Until an ORR administrator approves your account, you can only access the Profile tab to view or edit your details.
+              </p>
+              <button 
+                onClick={() => router.push('/profile')}
+                className="px-8 py-3 bg-primary text-background hover:opacity-90 rounded-xl text-sm font-bold shadow-lg transition"
+              >
+                Go to Profile
+              </button>
+            </div>
+          ) : (
+            children
+          )}
         </div>
       </main>
 

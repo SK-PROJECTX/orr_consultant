@@ -37,7 +37,12 @@ export default function DashboardTab() {
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   const activeTasks = tasks.filter(t => t.status !== 'COMPLETED');
-  const pendingInvoicesAmount = walletBalance.pending;
+  const [nodeKey, setNodeKey] = useState('ORR-CONS-GEN');
+
+  React.useEffect(() => {
+    const cNum = sessionStorage.getItem('consultant_number');
+    if (cNum) setNodeKey(cNum);
+  }, []);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -60,7 +65,7 @@ export default function DashboardTab() {
           </p>
         </div>
         <div className="text-xs font-mono text-slate-500 bg-slate-950/40 px-4 py-2.5 border border-white/5 rounded-xl">
-          {t('dashboard.nodeKey')} <span className="text-slate-300 font-bold">ORR-CONS-{onboardingData?.industry?.substring(0, 3).toUpperCase() || 'GEN'}</span>
+          {t('dashboard.nodeKey')} <span className="text-slate-300 font-bold">{nodeKey}</span>
         </div>
       </div>
 
@@ -84,7 +89,7 @@ export default function DashboardTab() {
         <div className="p-5 rounded-2xl bg-card border border-white/5 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-emerald-500/5 rounded-full group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono block">{t('dashboard.inReviewPending')}</span>
-          <h3 className="text-2xl font-black text-white mt-2">${pendingInvoicesAmount.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-white mt-2">${walletBalance.pending.toLocaleString()}</h3>
           <p className="text-[10px] text-slate-400 mt-3 font-semibold">{t('dashboard.biWeeklyBilling')}</p>
         </div>
 
@@ -114,8 +119,7 @@ export default function DashboardTab() {
         </div>
       </div>
 
-      {/* Analytics Graphs */}
-      <AnalyticsOverview />
+      {/* Analytics Graphs (Removed dummy data) */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Job Acceptance & Deadlines */}
@@ -226,6 +230,40 @@ export default function DashboardTab() {
               </div>
             )}
           </div>
+
+          {/* Active Contracts / Scopes */}
+          {activeJobs.length > 0 && (
+            <div className="space-y-4 mt-8">
+              <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                <CheckCircle size={18} className="text-emerald-400" />
+                Active Workspaces
+              </h2>
+              <div className="space-y-4">
+                {activeJobs.map(job => (
+                  <div key={job.id} className="p-5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded">
+                            {job.id}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">Accepted: {new Date(job.acceptedAt || '').toLocaleDateString()}</span>
+                        </div>
+                        <h3 className="text-sm font-bold text-emerald-400 mt-2">{job.title}</h3>
+                        <p className="text-xs text-slate-400 mt-1">{job.description}</p>
+                      </div>
+                      <Link 
+                        href="/tasks"
+                        className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Workspace
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Pending Compliance Section */}
           {compliancePendingJobs.length > 0 && (

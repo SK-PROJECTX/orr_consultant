@@ -27,9 +27,9 @@ export default function WalletTab() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-2026-${Math.floor(100 + Math.random() * 900)}`);
   const [selectedTask, setSelectedTask] = useState('');
-  const [billingPeriod, setBillingPeriod] = useState('May 16 - May 24, 2026');
-  const [hours, setHours] = useState(10);
-  const [rate, setRate] = useState(125);
+  const [billingPeriod, setBillingPeriod] = useState('');
+  const [hours, setHours] = useState<number | ''>('');
+  const [rate, setRate] = useState<number | ''>('');
   const [fileName, setFileName] = useState('');
   const [notes, setNotes] = useState('');
   const [fileDragging, setFileDragging] = useState(false);
@@ -69,13 +69,15 @@ export default function WalletTab() {
       return;
     }
 
-    const calculatedAmount = hours * rate;
+    const numHours = Number(hours) || 0;
+    const numRate = Number(rate) || 0;
+    const calculatedAmount = numHours * numRate;
 
     submitInvoice({
       invoiceNumber,
       billingPeriod,
-      hours,
-      rate,
+      hours: numHours,
+      rate: numRate,
       amount: calculatedAmount,
       taskTitle: selectedTask,
       fileName,
@@ -498,7 +500,7 @@ export default function WalletTab() {
               {/* Total Calculation */}
               <div className="p-4 bg-slate-950/60 border border-white/5 rounded-xl flex justify-between items-center font-mono">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('wallet.totalBilledAmount')}</span>
-                <span className="text-sm font-black text-emerald-400">${(hours * rate).toLocaleString()}</span>
+                <span className="text-sm font-black text-emerald-400">${((Number(hours) || 0) * (Number(rate) || 0)).toLocaleString()}</span>
               </div>
 
               <div className="flex gap-3 pt-2">

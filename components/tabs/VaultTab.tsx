@@ -85,7 +85,16 @@ export default function VaultTab() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      uploadFileToVault({ name: file.name, type: file.type, size: file.size }, currentFolderId);
+      const reader = new FileReader();
+      reader.onload = () => {
+        uploadFileToVault({ 
+          name: file.name, 
+          type: file.type, 
+          size: file.size, 
+          content: reader.result as string 
+        }, currentFolderId);
+      };
+      reader.readAsDataURL(file);
       setIsNewMenuOpen(false);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -350,11 +359,49 @@ export default function VaultTab() {
 
         <div className="flex-1 bg-slate-900/60 border border-white/10 rounded-3xl flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
-           <ImageIcon size={64} className="text-slate-600 mb-6" />
-           <h3 className="text-xl font-bold text-white mb-2">{t('vault.drive.preview')}</h3>
-           <p className="text-slate-400 text-sm max-w-md mb-8">{t('vault.drive.unsupportedPreview')}</p>
            
-           <button className="flex items-center gap-2 px-8 py-4 bg-primary text-slate-900 font-black rounded-2xl hover:bg-lemon transition-colors shadow-xl shadow-primary/20">
+           {currentDoc.fileMeta?.mimeType?.startsWith('image/') ? (
+             <div className="w-full max-w-2xl bg-black/40 rounded-2xl border border-white/10 p-2 mb-8 shadow-2xl relative">
+               <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full font-mono border border-white/10">
+                 PREVIEW MODE
+               </div>
+               
+               {currentDoc.content ? (
+                 <img 
+                   src={currentDoc.content} 
+                   alt="Image Preview" 
+                   className="w-full h-[300px] object-contain bg-slate-950/80 rounded-xl"
+                 />
+               ) : (
+                 <div className="w-full h-[300px] flex flex-col items-center justify-center bg-slate-950/80 rounded-xl border border-white/5">
+                   <ImageIcon size={48} className="text-slate-700 mb-4" />
+                   <p className="text-slate-500 text-sm font-semibold">Image data not found</p>
+                   <p className="text-slate-600 text-xs mt-1 max-w-xs text-center">This image was uploaded before Base64 encoding was enabled. Please re-upload the file.</p>
+                 </div>
+               )}
+             </div>
+           ) : (
+             <>
+               <ImageIcon size={64} className="text-slate-600 mb-6" />
+               <h3 className="text-xl font-bold text-white mb-2">{t('vault.drive.preview')}</h3>
+               <p className="text-slate-400 text-sm max-w-md mb-8">{t('vault.drive.unsupportedPreview')}</p>
+             </>
+           )}
+           
+           <button 
+             onClick={() => {
+               const blob = new Blob(['Secure file content placeholder from ORR Vault'], { type: currentDoc.fileMeta?.mimeType || 'application/octet-stream' });
+               const url = URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url;
+               a.download = currentDoc.title;
+               document.body.appendChild(a);
+               a.click();
+               document.body.removeChild(a);
+               URL.revokeObjectURL(url);
+             }}
+             className="flex items-center gap-2 px-8 py-4 bg-primary text-slate-900 font-black rounded-2xl hover:bg-lemon transition-colors shadow-xl shadow-primary/20 relative z-10"
+           >
              <Download size={20} />
              {t('vault.drive.download')}
            </button>

@@ -11,6 +11,7 @@ export default function ProfileTab() {
   const { t } = useTranslation();
   const profileData = useConsultantStore(state => state.profileData);
   const updateProfile = useConsultantStore(state => state.updateProfile);
+  const fetchProfile = useConsultantStore(state => state.fetchProfile);
 
   const [activeTab, setActiveTab] = useState<Tab>('personal');
   const [formData, setFormData] = useState<ProfileData>(profileData);
@@ -21,6 +22,11 @@ export default function ProfileTab() {
   useEffect(() => {
     setFormData(profileData);
   }, [profileData]);
+
+  // Fetch from backend on mount to ensure we have the latest data
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

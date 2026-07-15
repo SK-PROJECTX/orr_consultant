@@ -16,13 +16,18 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function MeetingsTab() {
   const { t } = useTranslation();
-  const meetings = useConsultantStore(state => state.meetings);
-  const bookMeeting = useConsultantStore(state => state.bookMeeting);
+  const { meetings, bookMeeting, fetchMeetings, pmDirectory, fetchPmDirectory } = useConsultantStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [date, setDate] = useState('2026-05-27');
   const [timeSlot, setTimeSlot] = useState('02:00 PM - 02:30 PM');
   const [topic, setTopic] = useState('');
+  const [selectedPm, setSelectedPm] = useState('');
+
+  React.useEffect(() => {
+    fetchMeetings();
+    fetchPmDirectory();
+  }, [fetchMeetings, fetchPmDirectory]);
 
   const timeSlots = [
     '09:30 AM - 10:00 AM',
@@ -38,7 +43,7 @@ export default function MeetingsTab() {
       return;
     }
 
-    bookMeeting(`PM Sync: ${topic.trim()}`, date, timeSlot);
+    bookMeeting(`PM Sync: ${topic.trim()}`, date, timeSlot, selectedPm);
     setTopic('');
     setIsModalOpen(false);
   };
@@ -250,9 +255,21 @@ export default function MeetingsTab() {
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('meetings.participant')}</label>
-                    <div className="w-full px-4 py-3 bg-slate-950/40 border border-white/5 rounded-xl text-xs font-bold text-slate-400 flex items-center gap-2">
-                      <Users size={14} />
-                      {t('meetings.marcusVance')}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                        <Users size={14} />
+                      </div>
+                      <select
+                        value={selectedPm}
+                        onChange={e => setSelectedPm(e.target.value)}
+                        required
+                        className="w-full pl-9 pr-3 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-primary/50 transition-colors font-mono appearance-none"
+                      >
+                        <option value="">Choose a Project Manager...</option>
+                        {Array.isArray(pmDirectory) && pmDirectory.map((pm: any) => (
+                          <option key={pm.id} value={pm.id}>{pm.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>

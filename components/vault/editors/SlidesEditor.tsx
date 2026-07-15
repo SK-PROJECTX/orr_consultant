@@ -4,8 +4,9 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 import { 
    Plus, X, Type, Image as ImageIcon, Square, Circle, Triangle, 
-   AlignLeft, AlignCenter, AlignRight, Play, Copy, Trash2, Palette, Star, ArrowRight, Maximize2, Move
+   AlignLeft, AlignCenter, AlignRight, Play, Copy, Trash2, Palette, Star, ArrowRight, Maximize2, Move, Sparkles, Loader2
 } from 'lucide-react';
+import { vaultApi } from '@/lib/vault-api';
 import { 
    DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent 
 } from '@dnd-kit/core';
@@ -65,6 +66,7 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
    const [slides, setSlides] = useState<Slide[]>([]);
    const [activeSlideId, setActiveSlideId] = useState<string>('');
    const [isFullscreen, setIsFullscreen] = useState(false);
+   const [isAiLoading, setIsAiLoading] = useState(false);
    
    const canvasRef = useRef<HTMLCanvasElement>(null);
    const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -129,7 +131,7 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
          
          setSlides(prev => {
             const newSlides = prev.map(s => s.id === activeSlideId ? { ...s, canvasData: json } : s);
-            onChange(JSON.stringify(newSlides));
+            setTimeout(() => onChange(JSON.stringify(newSlides)), 0);
             return newSlides;
          });
       };
@@ -151,10 +153,12 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
       if (!fabricCanvasRef.current || slides.length === 0 || !activeSlideId) return;
       
       const currentSlide = slides.find(s => s.id === activeSlideId);
-      isRenderingRef.current = true;
       if (currentSlide && currentSlide.canvasData) {
+         isRenderingRef.current = true;
          fabricCanvasRef.current.loadFromJSON(currentSlide.canvasData, () => {
             fabricCanvasRef.current?.renderAll();
+            // Force a secondary render pass to fix FabricJS DOM race conditions
+            setTimeout(() => fabricCanvasRef.current?.renderAll(), 100);
             isRenderingRef.current = false;
          });
       } else {
@@ -374,6 +378,45 @@ export default function SlidesEditor({ content, onChange, title, onTitleChange }
                         <ImageIcon size={18} />
                         <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                      </label>
+                     <div className="w-px h-6 bg-gray-300 mx-2" />
+                     <button 
+                        disabled={isAiLoading}
+                        onClick={async () => {
+                           const topic = prompt("What topic should the AI generate an outline for?");
+                           if (!topic) return;
+                           setIsAiLoading(true);
+                           try {
+                              const promptText = `Generate a slide outline for: ${topic}. Return ONLY a JSON array of strings, where each string is a slide title. Limit to 5 slides. No markdown, just the JSON array.`;
+                              const result = await vaultApi.askAIAssistant(promptText);
+                              if (result.includes("I'm experiencing a temporary issue") || result.includes("RESOURCE_EXHAUSTED")) {
+                                 alert('AI Quota Exceeded. Please check your Google Cloud Billing limits for the Gemini API.');
+                                 return;
+                              }
+                              const parsed = JSON.parse(result.replace(/```json/g, '').replace(/```/g, ''));
+                              if (Array.isArray(parsed)) {
+                                 const newSlides = parsed.map((t: string, i: number) => ({
+                                    id: Date.now().toString() + i,
+                                    title: t,
+                                    canvasData: null,
+                                    bg: '#ffffff'
+                                 }));
+                                 setSlides(newSlides);
+                                 onChange(JSON.stringify(newSlides));
+                                 setActiveSlideId(newSlides[0].id);
+                              }
+                           } catch (err) {
+                              console.error(err);
+                              alert("Failed to generate outline. Please try again.");
+                           } finally {
+                              setIsAiLoading(false);
+                           }
+                        }}
+                        className={`p-2 rounded transition-colors flex items-center gap-1 text-xs font-bold ${isAiLoading ? 'bg-indigo-100 text-indigo-600' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`} 
+                        title="AI Slide Outline"
+                     >
+                        {isAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                        {isAiLoading ? 'Thinking...' : 'AI Outline'}
+                     </button>
                      <div className="w-px h-6 bg-gray-300 mx-2" />
                      <button onClick={() => changeAlignment('left')} className="p-2 rounded hover:bg-gray-100 text-gray-600 transition-colors" title="Align Left">
                         <AlignLeft size={18} />

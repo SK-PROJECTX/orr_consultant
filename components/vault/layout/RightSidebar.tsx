@@ -1,17 +1,54 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Zap, ArrowRight, X, Clock, Settings, Users, FileText } from 'lucide-react';
+import { Zap, ArrowRight, X, Clock, Settings, Users, FileText, Loader2, Bot, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { vaultApi } from '@/lib/vault-api';
 
 interface RightSidebarProps {
    documentTitle: string;
+   documentContent?: string;
+   documentType?: string;
 }
 
 type TabType = 'ai' | 'comments' | 'history' | 'properties';
 
-export default function RightSidebar({ documentTitle }: RightSidebarProps) {
+export default function RightSidebar({ documentTitle, documentContent, documentType }: RightSidebarProps) {
    const [activeTab, setActiveTab] = useState<TabType>('ai');
+   
+   // AI State
+   const [aiInput, setAiInput] = useState('');
+   const [isAiLoading, setIsAiLoading] = useState(false);
+   const [aiMessages, setAiMessages] = useState<{id: string, role: 'user'|'assistant', content: string}[]>([
+      { id: '1', role: 'assistant', content: `I can help you structure the data in ${documentTitle || 'this asset'}. Would you like an outline?` }
+   ]);
+
+   const handleAiSubmit = async (e?: React.FormEvent, customPrompt?: string) => {
+      e?.preventDefault();
+      const text = customPrompt || aiInput.trim();
+      if (!text || isAiLoading) return;
+
+      if (!customPrompt) setAiInput('');
+      setAiMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: text }]);
+      setIsAiLoading(true);
+
+      try {
+         const history = aiMessages.map(m => ({ role: m.role, content: m.content }));
+         const context = `Document type: ${documentType || 'unknown'}. Title: ${documentTitle || 'Untitled'}. Content excerpt: ${documentContent ? documentContent.substring(0, 1000) : 'No content'}`;
+         const reply = await vaultApi.askAIAssistant(text, context, history);
+         
+         if (reply.includes("I'm experiencing a temporary issue") || reply.includes("RESOURCE_EXHAUSTED")) {
+            setAiMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'AI Quota Exceeded. Please check your Google Cloud Billing limits for the Gemini API.' }]);
+         } else {
+            setAiMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: reply }]);
+         }
+      } catch (err) {
+         console.error(err);
+         setAiMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+      } finally {
+         setIsAiLoading(false);
+      }
+   };
 
    return (
       <aside className="hidden lg:flex w-80 border-l border-white/10 bg-card flex-col z-10 shrink-0">
@@ -66,28 +103,59 @@ export default function RightSidebar({ documentTitle }: RightSidebarProps) {
                      </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                     <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
-                        <p className="text-sm text-slate-300 leading-relaxed">
-                           I can help you structure the data in {documentTitle || 'this asset'}. Would you like an outline?
-                        </p>
-                        <button className="w-full py-2 bg-transparent border border-white/10 text-slate-300 rounded text-sm font-medium hover:bg-white/5 transition-all">
-                           Generate Outline
-                        </button>
-                     </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                     {aiMessages.map(msg => (
+                        <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                           <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary text-black' : 'bg-[#cdff00]/20 text-[#cdff00] border border-[#cdff00]/30'}`}>
+                              {msg.role === 'user' ? <User size={14} /> : <Zap size={14} />}
+                           </div>
+                           <div className={`text-xs leading-relaxed max-w-[85%] ${msg.role === 'user' ? 'text-white' : 'text-slate-300'} whitespace-pre-wrap p-2 rounded-lg bg-white/5`}>
+                              {msg.content}
+                           </div>
+                        </div>
+                     ))}
+                     {isAiLoading && (
+                        <div className="flex gap-3">
+                           <div className="w-6 h-6 rounded-md bg-[#cdff00]/20 text-[#cdff00] border border-[#cdff00]/30 flex items-center justify-center shrink-0">
+                              <Zap size={14} />
+                           </div>
+                           <div className="text-xs text-slate-500 flex items-center bg-white/5 p-2 rounded-lg">
+                              <Loader2 size={12} className="animate-spin mr-2" /> Thinking...
+                           </div>
+                        </div>
+                     )}
+                     
+                     {aiMessages.length === 1 && (
+                        <div className="mt-4">
+                           <button 
+                              onClick={() => handleAiSubmit(undefined, "Generate a detailed outline for this document.")}
+                              disabled={isAiLoading}
+                              className="w-full py-2 bg-transparent border border-white/10 text-slate-300 rounded text-sm font-medium hover:bg-white/5 transition-all disabled:opacity-50"
+                           >
+                              Generate Outline
+                           </button>
+                        </div>
+                     )}
                   </div>
 
                   <div className="p-4 border-t border-white/10 shrink-0">
-                     <div className="relative">
+                     <form onSubmit={handleAiSubmit} className="relative">
                         <input
                            type="text"
+                           value={aiInput}
+                           onChange={e => setAiInput(e.target.value)}
+                           disabled={isAiLoading}
                            placeholder="Ask Gemini..."
-                           className="w-full bg-[#1a1f26] border border-white/10 rounded-full py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+                           className="w-full bg-[#1a1f26] border border-white/10 rounded-full py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
                         />
-                        <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary text-slate-900 rounded-full hover:bg-lemon transition-colors">
+                        <button 
+                           type="submit"
+                           disabled={!aiInput.trim() || isAiLoading}
+                           className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary text-slate-900 rounded-full hover:bg-lemon transition-colors disabled:opacity-50"
+                        >
                            <ArrowRight size={14} />
                         </button>
-                     </div>
+                     </form>
                   </div>
                </motion.div>
             )}
