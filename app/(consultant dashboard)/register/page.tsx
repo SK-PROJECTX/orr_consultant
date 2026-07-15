@@ -35,12 +35,35 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-    // Simulate secure consultant registry verification delay
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch("https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/auth/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Assume data contains { success: true, data: { consultant_number: '...' } }
+        alert("Consultant Account Registered successfully! Redirecting to verification.");
+        // Store email temporarily for verification step
+        sessionStorage.setItem("verify_email", formData.email);
+        router.push("/verify");
+      } else {
+        setError(data.message || "Registration failed. Please try again.");
+      }
+    } catch (err) {
+      setError("Network error. Please ensure the backend is running.");
+    } finally {
       setIsLoading(false);
-      alert("Consultant Account Registered successfully! Redirecting to specialist gateway for 2FA verification.");
-      router.push("/signin");
-    }, 1200);
+    }
   };
 
   return (

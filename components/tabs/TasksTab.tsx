@@ -9,7 +9,8 @@ import {
   CheckCircle,
   TrendingUp,
   GripHorizontal,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { 
@@ -26,10 +27,11 @@ interface DroppableColumnProps {
   title: string;
   icon: React.ReactNode;
   tasks: Task[];
-  onTaskClick?: (taskId: string) => void;
+  onSubmitClick?: (taskId: string) => void;
+  onViewClick?: (taskId: string) => void;
 }
 
-const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, tasks, onTaskClick }) => {
+const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, tasks, onSubmitClick, onViewClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -50,14 +52,14 @@ const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, task
       </div>
       <div className="p-4 flex-1 space-y-4 overflow-y-auto min-h-[400px]">
         {tasks.map(task => (
-          <DraggableTaskCard key={task.id} task={task} onClick={() => onTaskClick?.(task.id)} />
+          <DraggableTaskCard key={task.id} task={task} onSubmitClick={() => onSubmitClick?.(task.id)} onViewClick={() => onViewClick?.(task.id)} />
         ))}
       </div>
     </div>
   );
 };
 
-const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onClick?: () => void }> = ({ task, isOverlay, onClick }) => {
+const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitClick?: () => void, onViewClick?: () => void }> = ({ task, isOverlay, onSubmitClick, onViewClick }) => {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -86,17 +88,25 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onClick?: (
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-grab'}`}
-      {...listeners}
+      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-pointer hover:bg-white/5'}`}
+      onClick={() => onViewClick?.()}
       {...attributes}
     >
       {task.status === 'IN_PROGRESS' && (
-        <div className="absolute top-0 left-0 w-1 h-full bg-cyan-400" />
+        <div className="absolute top-0 left-0 w-1 h-full bg-blue-400" />
       )}
       
       <div className="flex justify-between items-start">
         <span className="text-[9px] font-mono text-slate-500 font-extrabold">{task.id}</span>
-        <GripHorizontal size={14} className="text-slate-600" />
+        <div 
+          className="cursor-grab hover:text-white transition-colors text-slate-600 p-1 -mr-1 -mt-1 rounded hover:bg-white/10"
+          {...listeners}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <GripHorizontal size={14} />
+        </div>
       </div>
       
       <div>
@@ -119,10 +129,10 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onClick?: (
 
       {task.status === 'IN_PROGRESS' && (
         <div 
-           className="mt-2 text-[9px] font-black text-cyan-400 flex items-center gap-1 cursor-pointer hover:text-cyan-300"
+           className="mt-2 text-[9px] font-black text-blue-400 flex items-center gap-1 cursor-pointer hover:text-blue-300"
            onPointerDown={(e) => {
              e.stopPropagation(); 
-             onClick?.();
+             onSubmitClick?.();
            }}
         >
           {t('tasks.submitDeliverable')} <ChevronRight size={10} />
@@ -135,13 +145,18 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onClick?: (
 export default function TasksTab() {
   const { t } = useTranslation();
   const tasks = useConsultantStore(state => state.tasks);
+  const fetchTasks = useConsultantStore(state => state.fetchTasks);
   const updateTaskStatus = useConsultantStore(state => state.updateTaskStatus);
   const submitTaskDeliverable = useConsultantStore(state => state.submitTaskDeliverable);
 
-  // Submit Drawer State
+  React.useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -154,22 +169,22 @@ export default function TasksTab() {
     e.preventDefault();
     setDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFileName(e.dataTransfer.files[0].name);
+      setFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!notes.trim() || !fileName) {
+    if (!notes.trim() || !file) {
       alert(t('tasks.alertCompletionNotes'));
       return;
     }
 
     if (submittingTaskId) {
-      submitTaskDeliverable(submittingTaskId, notes, fileName);
+      submitTaskDeliverable(submittingTaskId, notes, file);
       setSubmittingTaskId(null);
       setNotes('');
-      setFileName('');
+      setFile(null);
     }
   };
 
@@ -188,7 +203,6 @@ export default function TasksTab() {
 
     if (currentStatus === targetStatus) return;
 
-    // If moving to UNDER_REVIEW, trigger the submission modal instead of immediate update
     if (targetStatus === 'UNDER_REVIEW' && currentStatus !== 'UNDER_REVIEW') {
       setSubmittingTaskId(taskId);
       return;
@@ -201,22 +215,28 @@ export default function TasksTab() {
   const activeDragTask = tasks.find(t => t.id === activeDragId);
 
   const cols = [
-    { id: 'ASSIGNED' as const, title: t('tasks.statusAssigned'), icon: <AlertCircle size={16} className="text-slate-400" /> },
-    { id: 'IN_PROGRESS' as const, title: t('tasks.statusCoding'), icon: <TrendingUp size={16} className="text-cyan-400" /> },
-    { id: 'UNDER_REVIEW' as const, title: t('tasks.statusAuditing'), icon: <Clock size={16} className="text-amber-400" /> },
+    { id: 'NOT_STARTED' as const, title: t('tasks.statusAssigned'), icon: <Clock size={16} className="text-slate-400" /> },
+    { id: 'IN_PROGRESS' as const, title: t('tasks.statusCoding'), icon: <TrendingUp size={16} className="text-blue-400" /> },
+    { id: 'UNDER_REVIEW' as const, title: t('tasks.statusAuditing'), icon: <AlertCircle size={16} className="text-amber-400" /> },
+    { id: 'BLOCKED' as const, title: t('tasks.statusBlocked'), icon: <AlertCircle size={16} className="text-red-400" /> },
     { id: 'COMPLETED' as const, title: t('tasks.statusCompleted'), icon: <CheckCircle size={16} className="text-emerald-400" /> },
   ];
+
+  const getColumnTasks = (colId: string) => {
+    if (colId === 'NOT_STARTED') {
+      return tasks.filter(t => t.status === 'NOT_STARTED' || t.status === 'ASSIGNED');
+    }
+    return tasks.filter(t => t.status === colId);
+  };
 
   return (
     <div className="space-y-6 flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-300">
 
-      {/* Page Header */}
       <div className="flex-shrink-0">
         <h1 className="text-xl lg:text-2xl font-black text-white">{t('tasks.title')}</h1>
         <p className="text-slate-400 text-xs mt-1">{t('tasks.desc')}</p>
       </div>
 
-      {/* Kanban Board Container */}
       <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-6 h-full items-start">
@@ -226,8 +246,9 @@ export default function TasksTab() {
                 id={col.id} 
                 title={col.title} 
                 icon={col.icon} 
-                tasks={tasks.filter(t => t.status === col.id)} 
-                onTaskClick={(id) => setSubmittingTaskId(id)}
+                tasks={getColumnTasks(col.id)} 
+                onSubmitClick={(id) => setSubmittingTaskId(id)}
+                onViewClick={(id) => setViewingTaskId(id)}
               />
             ))}
           </div>
@@ -238,102 +259,142 @@ export default function TasksTab() {
         </DndContext>
       </div>
 
-      {/* Deliverable Submission Drawer Modal */}
       {submittingTaskId && submittingTaskObj && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="max-w-md w-full bg-slate-900 border border-cyan-500/30 backdrop-blur-2xl p-6 lg:p-8 rounded-[2rem] space-y-6 shadow-2xl relative">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider font-mono">{t('tasks.deliverablesSuite')}</span>
-              <h3 className="text-lg font-black text-white">{t('tasks.uploadTaskDeliverable')}</h3>
-              <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
-                {t('tasks.submittingFor')} <strong className="text-white font-semibold font-mono">{submittingTaskObj.id}</strong>{t('tasks.pmWillBeAlerted')}
-              </p>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('tasks.completionNotes')}</label>
-                <textarea
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border-l border-white/10 w-full max-w-md h-full p-6 flex flex-col shadow-2xl animate-in slide-in-from-right">
+            <h2 className="text-xl font-black text-white mb-2">{t('tasks.modalTitle')}</h2>
+            <p className="text-sm text-slate-400 mb-6">{submittingTaskObj.title}</p>
+            <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col gap-6">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">{t('tasks.labelNotes')}</label>
+                <textarea 
+                  className="w-full mt-2 bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary/50 h-32 resize-none"
+                  placeholder={t('tasks.placeholderNotes')}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder={t('tasks.detailChanges')}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-slate-950/60 border border-white/10 focus:border-cyan-500/50 rounded-xl text-xs font-semibold text-white focus:outline-none transition-colors leading-relaxed"
-                  required
                 />
               </div>
 
-              {/* Drag and Drop File Upload Area */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">{t('tasks.deliverableArchive')}</label>
-
-                <div
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">{t('tasks.labelFile')}</label>
+                <div 
+                  className={`mt-2 border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 transition-colors ${dragging ? 'border-primary/50 bg-primary/10' : 'border-white/10 hover:border-white/20'}`}
                   onDragOver={handleDragOver}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
-                  className={`p-6 border-2 border-dashed rounded-2xl text-center transition-all ${fileName
-                      ? 'bg-cyan-500/5 border-cyan-500 text-white'
-                      : dragging
-                        ? 'bg-slate-850 border-cyan-500 text-cyan-400'
-                        : 'bg-slate-950/40 border-white/10 text-slate-400 hover:border-white/20'
-                    }`}
                 >
-                  <UploadCloud className="mx-auto mb-2 text-slate-400 stroke-1" size={32} />
-                  {fileName ? (
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-cyan-400">{fileName}</p>
-                      <button
-                        type="button"
-                        onClick={() => setFileName('')}
-                        className="text-[9px] text-red-400 hover:underline font-mono"
-                      >
-                        {t('tasks.removeArchive')}
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-xs font-bold text-slate-300">{t('tasks.dragDropArchive')}</p>
-                      <p className="text-[10px] text-slate-500 mt-1">{t('tasks.orClickToBrowseLocal')}</p>
-                      <input
-                        type="file"
-                        accept=".zip,.pdf,.txt,.rar"
-                        onChange={e => e.target.files && e.target.files[0] && setFileName(e.target.files[0].name)}
-                        className="hidden"
-                        id="deliverable-file-picker"
-                      />
-                      <label
-                        htmlFor="deliverable-file-picker"
-                        className="mt-3 inline-block px-4 py-1.5 bg-slate-850 hover:bg-slate-800 border border-white/5 hover:border-white/10 rounded-xl text-[10px] font-bold text-slate-300 cursor-pointer transition-all"
-                      >
-                        {t('tasks.selectArchive')}
-                      </label>
+                  <UploadCloud size={32} className={dragging ? 'text-primary' : 'text-slate-500'} />
+                  <div className="text-center">
+                    <p className="text-sm text-white font-bold">{t('tasks.dropFile')}</p>
+                    <p className="text-xs text-slate-500 mt-1">{t('tasks.supportedFormats')}</p>
+                  </div>
+                  {file && (
+                    <div className="mt-4 px-4 py-2 bg-white/5 rounded-lg border border-white/10 flex items-center gap-2">
+                      <FileText size={16} className="text-primary" />
+                      <span className="text-sm font-mono text-white">{file.name}</span>
                     </div>
                   )}
+                  <input type="file" className="hidden" id="fileUpload" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                  <label htmlFor="fileUpload" className="mt-2 text-xs font-bold text-primary cursor-pointer hover:underline">
+                    Browse files
+                  </label>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
+              <div className="mt-auto flex gap-3">
+                <button 
+                  type="button" 
                   onClick={() => setSubmittingTaskId(null)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl transition text-xs cursor-pointer"
+                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold transition-colors"
                 >
-                  {t('tasks.cancel')}
+                  {t('tasks.btnCancel')}
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-2.5 rounded-xl transition text-xs shadow-lg shadow-cyan-500/10 cursor-pointer animate-pulse"
+                <button 
+                  type="submit" 
+                  className="flex-1 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-bold transition-colors"
                 >
-                  {t('tasks.deliverMilestone')}
+                  {t('tasks.btnSubmit')}
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
 
+      {/* View Task Modal Drawer */}
+      {viewingTaskId && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border-l border-white/10 w-full max-w-xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right overflow-y-auto">
+            {/* Header */}
+            <div className="p-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
+              <div>
+                <span className="text-[10px] font-black uppercase text-blue-400 tracking-wider font-mono">Task Details</span>
+                <h2 className="text-xl font-bold text-white mt-1 leading-tight">{tasks.find(t => t.id === viewingTaskId)?.title}</h2>
+              </div>
+              <button 
+                className="text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors"
+                onClick={() => setViewingTaskId(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 flex-1 space-y-8">
+              {/* Meta Info Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-slate-500 font-mono uppercase font-black block mb-1">Status</span>
+                  <span className="text-sm text-white font-semibold">{tasks.find(t => t.id === viewingTaskId)?.status}</span>
+                </div>
+                <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-slate-500 font-mono uppercase font-black block mb-1">Due Date</span>
+                  <span className="text-sm text-white font-semibold">{tasks.find(t => t.id === viewingTaskId)?.dueDate}</span>
+                </div>
+                <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-slate-500 font-mono uppercase font-black block mb-1">Priority</span>
+                  <span className="text-sm text-white font-semibold">{tasks.find(t => t.id === viewingTaskId)?.priority}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-black text-white">Full Description</h3>
+                <div className="bg-slate-950/30 p-5 rounded-2xl border border-white/5">
+                  <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
+                    {tasks.find(t => t.id === viewingTaskId)?.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Deliverable Info if exists */}
+              {tasks.find(t => t.id === viewingTaskId)?.deliverableSubmitted && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-white">Submitted Deliverable</h3>
+                  <div className="bg-slate-950/30 p-5 rounded-2xl border border-white/5 space-y-3">
+                    <p className="text-sm text-emerald-400 font-mono font-black">
+                      {tasks.find(t => t.id === viewingTaskId)?.deliverableSubmitted?.fileName}
+                    </p>
+                    <p className="text-sm text-slate-400 whitespace-pre-wrap italic">
+                      "{tasks.find(t => t.id === viewingTaskId)?.deliverableSubmitted?.notes}"
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-6 border-t border-white/5 bg-slate-900 sticky bottom-0">
+              <button 
+                className="w-full py-4 bg-slate-800 text-white rounded-xl text-sm font-black hover:bg-slate-700 transition-colors"
+                onClick={() => setViewingTaskId(null)}
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

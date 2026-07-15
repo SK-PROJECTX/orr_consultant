@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Briefcase, ChevronRight, ChevronLeft, Search, Filter } from 'lucide-react';
 import OpportunityResponseForm from '@/components/opportunities/OpportunityResponseForm';
+import { useConsultantStore } from '@/store/consultantStore';
 
 export type OpportunityStage = 'EXPRESSION_OF_INTEREST' | 'SELECTION' | 'ASSIGNMENT_ACCEPTANCE' | 'ACCESS_ACTIVATION';
 
@@ -26,73 +27,16 @@ export interface Opportunity {
   summaryVersion?: string;
 }
 
-const mockOpportunities: Opportunity[] = [
-  {
-    id: 'OPT-2026-001',
-    title: 'Cloud Infrastructure Migration',
-    description: 'We are seeking an experienced cloud architect to lead the migration of legacy systems to AWS. This includes setting up secure CI/CD pipelines, container orchestration with EKS, and implementing robust monitoring solutions.',
-    serviceCategory: 'Operational Systems & Infrastructure',
-    requiredExpertise: ['AWS', 'Kubernetes', 'CI/CD Pipelines', 'System Architecture'],
-    expectedRole: 'Project Lead',
-    expectedDeliverable: 'Implementation support',
-    indicativeDeadline: 'Q4 2026',
-    workMode: 'Remote',
-    requiredLanguages: ['English'],
-    stage: 'EXPRESSION_OF_INTEREST',
-    statusText: 'Review Opportunity',
-    dateAssigned: '2026-07-05',
-  },
-  {
-    id: 'OPT-2026-002',
-    title: 'Data Privacy Compliance Audit',
-    description: 'Conduct a comprehensive audit of current data handling practices to ensure GDPR compliance. This role requires reviewing data flows, access controls, and updating security policies.',
-    serviceCategory: 'Strategy Advisory & Compliance',
-    requiredExpertise: ['GDPR Compliance', 'Data Privacy', 'Risk Assessment'],
-    expectedRole: 'Subject-Matter Expert',
-    expectedDeliverable: 'Advisory note',
-    indicativeDeadline: 'October 15, 2026',
-    workMode: 'Hybrid',
-    requiredLanguages: ['English', 'Italian'],
-    stage: 'SELECTION',
-    statusText: 'Under Review by Admin',
-    dateAssigned: '2026-06-28',
-  },
-  {
-    id: 'OPT-2026-003',
-    title: 'Frontend Architecture Revamp',
-    description: 'Redesign the core frontend architecture using Next.js and React 18 for improved performance. The consultant will lead a team of 3 developers to migrate from an older SPA architecture.',
-    serviceCategory: 'Operational Systems & Infrastructure',
-    requiredExpertise: ['React', 'Next.js', 'Technical Leadership'],
-    expectedRole: 'Technical Implementer',
-    expectedDeliverable: 'Implementation support',
-    indicativeDeadline: 'December 2026',
-    workMode: 'Remote',
-    requiredLanguages: ['English'],
-    stage: 'ASSIGNMENT_ACCEPTANCE',
-    statusText: 'Formal Assignment Offer',
-    dateAssigned: '2026-06-15',
-  },
-  {
-    id: 'OPT-2026-004',
-    title: 'Zero-Trust Security Implementation',
-    description: 'Design and implement a zero-trust network architecture for internal tools. Involves evaluating identity providers and deploying micro-segmentation policies.',
-    serviceCategory: 'Operational Systems & Infrastructure',
-    requiredExpertise: ['Cybersecurity', 'Zero-Trust Architecture', 'Identity Management'],
-    expectedRole: 'Subject-Matter Expert',
-    expectedDeliverable: 'Technical opinion',
-    indicativeDeadline: 'November 30, 2026',
-    workMode: 'Remote',
-    requiredLanguages: ['English'],
-    stage: 'ACCESS_ACTIVATION',
-    statusText: 'Project Access Activated',
-    dateAssigned: '2026-05-10',
-  }
-];
-
 export default function OpportunitiesTab() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities);
+  const opportunities = useConsultantStore(state => state.opportunities || []);
+  const fetchOpportunities = useConsultantStore(state => state.fetchOpportunities);
+  
   const [selectedOptId, setSelectedOptId] = useState<string | null>(null);
   const [isExternal, setIsExternal] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    fetchOpportunities();
+  }, [fetchOpportunities]);
 
   const selectedOpportunity = opportunities.find(o => o.id === selectedOptId);
 
@@ -106,10 +50,11 @@ export default function OpportunitiesTab() {
     }
   };
 
-  const handleStageChange = (optId: string, newStage: OpportunityStage, newStatusText: string) => {
-    setOpportunities(prev => prev.map(o => 
-      o.id === optId ? { ...o, stage: newStage, statusText: newStatusText } : o
-    ));
+  const handleStageChange = async (optId: string, newStage: OpportunityStage, newStatusText: string) => {
+    // Ideally this would make an API call to respond to the opportunity
+    // For now, we refetch to keep it simple, or we could optimistically update
+    await fetchOpportunities();
+    setSelectedOptId(null);
   };
 
   return (

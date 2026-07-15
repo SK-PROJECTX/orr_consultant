@@ -8,40 +8,7 @@ import {
 } from 'recharts';
 import { Activity, DollarSign, Target, PieChart as PieChartIcon } from 'lucide-react';
 
-// Mock Data
-const activityData = [
-  { day: 'Mon', logins: 2, actions: 14 },
-  { day: 'Tue', logins: 3, actions: 28 },
-  { day: 'Wed', logins: 1, actions: 10 },
-  { day: 'Thu', logins: 4, actions: 45 },
-  { day: 'Fri', logins: 2, actions: 20 },
-  { day: 'Sat', logins: 0, actions: 0 },
-  { day: 'Sun', logins: 1, actions: 5 },
-];
-
-const paymentsData = [
-  { month: 'Jan', cleared: 4000, pending: 2400 },
-  { month: 'Feb', cleared: 3000, pending: 1398 },
-  { month: 'Mar', cleared: 2000, pending: 9800 },
-  { month: 'Apr', cleared: 2780, pending: 3908 },
-  { month: 'May', cleared: 1890, pending: 4800 },
-  { month: 'Jun', cleared: 2390, pending: 3800 },
-];
-
-const progressData = [
-  { week: 'W1', completion: 10 },
-  { week: 'W2', completion: 25 },
-  { week: 'W3', completion: 45 },
-  { week: 'W4', completion: 60 },
-  { week: 'W5', completion: 85 },
-  { week: 'W6', completion: 100 },
-];
-
-const baseTaskData = [
-  { id: 'completed', value: 12, color: '#10b981' }, // Emerald
-  { id: 'inProgress', value: 5, color: '#0ea5e9' }, // Cyan
-  { id: 'open', value: 3, color: '#f59e0b' },       // Amber
-];
+import { useConsultantStore } from '@/store/consultantStore';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -61,6 +28,46 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function AnalyticsOverview() {
   const { t } = useTranslation();
+  const walletBalance = useConsultantStore(state => state.walletBalance);
+  const tasks = useConsultantStore(state => state.tasks);
+
+  const activityData = [
+    { day: 'Mon', logins: 0, actions: 0 },
+    { day: 'Tue', logins: 0, actions: 0 },
+    { day: 'Wed', logins: 0, actions: 0 },
+    { day: 'Thu', logins: 0, actions: 0 },
+    { day: 'Fri', logins: 0, actions: 0 },
+    { day: 'Sat', logins: 0, actions: 0 },
+    { day: 'Sun', logins: 0, actions: 0 },
+  ];
+  
+  const paymentsData = [
+    { month: 'Jan', cleared: 0, pending: 0 },
+    { month: 'Feb', cleared: 0, pending: 0 },
+    { month: 'Mar', cleared: 0, pending: 0 },
+    { month: 'Apr', cleared: 0, pending: 0 },
+    { month: 'May', cleared: 0, pending: 0 },
+    { month: 'Jun', cleared: walletBalance.available, pending: walletBalance.pending },
+  ];
+  
+  const progressData = [
+    { week: 'W1', completion: 0 },
+    { week: 'W2', completion: 0 },
+    { week: 'W3', completion: 0 },
+    { week: 'W4', completion: 0 },
+    { week: 'W5', completion: 0 },
+    { week: 'W6', completion: 0 },
+  ];
+  
+  const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
+  const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'UNDER_REVIEW').length;
+  const openTasks = tasks.filter(t => t.status === 'ASSIGNED').length;
+
+  const baseTaskData = [
+    { id: 'completed', value: completedTasks, color: '#10b981' }, 
+    { id: 'inProgress', value: inProgressTasks, color: '#0ea5e9' },
+    { id: 'open', value: openTasks, color: '#f59e0b' },       
+  ];
 
   const taskData = baseTaskData.map(item => ({
     name: item.id === 'completed' ? t('dashboard.analytics.completed') : 

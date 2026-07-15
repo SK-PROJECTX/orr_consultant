@@ -50,7 +50,13 @@ export default function ConsultantOnboarding() {
   const { t } = useTranslation();
 
   const [step, setStep] = useState(1);
-  const [consultantId, setConsultantId] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [consultantId, setConsultantId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('consultant_number') || '';
+    }
+    return '';
+  });
   const [basicProfileStep, setBasicProfileStep] = useState(1);
   const [fullName, setFullName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -447,9 +453,14 @@ export default function ConsultantOnboarding() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (!selectedIndustry || !ndaAccepted || !consultantId || !fullName || !country || !conflictOfInterest || !dataProtection) return;
-    completeOnboarding(selectedIndustry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, capabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted, consultantId, fullName, displayName, phone, country, jobTitle);
+    setErrorMsg(null);
+    try {
+      await completeOnboarding(selectedIndustry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, capabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted, consultantId, fullName, displayName, phone, country, jobTitle);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'An error occurred during onboarding submission. Please verify all fields.');
+    }
   };
 
   return (
@@ -2027,6 +2038,13 @@ export default function ConsultantOnboarding() {
             </AnimatePresence>
 
             {/* Bottom Actions Navigation */}
+            {errorMsg && (
+              <div className="mt-8 bg-red-500/20 border border-red-500/40 rounded-2xl p-5 text-red-300 font-semibold text-sm flex items-center gap-3">
+                <X className="shrink-0 cursor-pointer text-red-400 hover:text-red-300 transition-colors" onClick={() => setErrorMsg(null)} size={20} />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             <div className="mt-16 pt-8 flex flex-col-reverse sm:flex-row justify-between gap-4 sm:gap-0">
               {step > 1 ? (
                 <button

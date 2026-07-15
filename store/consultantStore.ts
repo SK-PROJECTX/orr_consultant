@@ -98,6 +98,7 @@ export interface Invoice {
 
 export interface Task {
   id: string;
+  dbId?: number;
   jobId: string;
   title: string;
   description: string;
@@ -291,12 +292,15 @@ interface ConsultantState {
   uploadFileToVault: (fileObj: { name: string, type: string, size: number }, parentId: string | null) => void;
 
   // Chat
-  messages: Message[];
-  sendChatMessage: (text: string, attachment?: { name: string; url?: string; type: string }) => void;
+  fetchMessages: () => Promise<void>;
+  sendChatMessage: (text: string, attachment?: any, contactId?: string | null) => Promise<void>;
+  pmDirectory: any[];
+  fetchPmDirectory: () => Promise<void>;
 
   // Meetings
   meetings: Meeting[];
-  bookMeeting: (title: string, date: string, timeSlot: string) => void;
+  fetchMeetings: () => Promise<void>;
+  bookMeeting: (title: string, date: string, timeSlot: string, pmId?: string) => Promise<void>;
 
   // Notifications
   notifications: AppNotification[];
@@ -306,204 +310,19 @@ interface ConsultantState {
 }
 
 // Re-seeded Seed Data with real ORR Solutions parameters
-const INITIAL_JOB_OFFERS: JobOffer[] = [
-  {
-    id: 'JOB-901',
-    title: 'Costa Rican Agroforestry Ecological Survey',
-    industry: 'Living Systems Regeneration',
-    clientSector: 'Ecotourism & Agriculture',
-    rate: '$120/hr',
-    duration: '6 Weeks',
-    description: 'Perform structural canopy tree density surveys, deep-core soil carbon testing, and Indicator-Species bird biodiversity metrics logging in the Osa Peninsula reforestation belt.',
-    scope: [
-      'Conduct structural canopy cover audits using LiDAR metrics',
-      'Take core soil diagnostic samples at 30cm depth to evaluate organic indexes',
-      'Record bio-acoustic patterns for 48 hours at Osa Peninsula sites',
-      'Formulate a final Osa Ecological Regeneration report'
-    ],
-    deliverables: [
-      'Osa Canopy Structure & Biomass Map',
-      'Core Soil Carbon Diagnostic spreadsheet',
-      'Indicator Bird Species Bio-acoustic report'
-    ]
-  },
-  {
-    id: 'JOB-902',
-    title: 'Circular Flow Battery E-Waste Tracing Database',
-    industry: 'Operational Systems',
-    clientSector: 'Consumer Electronics Recyclers',
-    rate: '$145/hr',
-    duration: '4 Weeks',
-    description: 'Architect a secure material-flow ledger system to track batch shipments of recycled lithium/cobalt battery metals from waste center to smelt fabrication nodes.',
-    scope: [
-      'Design a relational PostgreSQL material batched provenance schema',
-      'Implement OAuth2 endpoints to secure ledger transfers between nodes',
-      'Develop automated audit triggers verifying the 1.5% mass-balance tolerance',
-      'Formulate API endpoints for barcode scanner clients'
-    ],
-    deliverables: [
-      'Provenance batch ledger relational schema',
-      'HMAC OAuth2 transfer endpoints',
-      'Automated Mass-balance validation triggers'
-    ]
-  },
-  {
-    id: 'ORR-PROJ-000001',
-    title: 'Q3 Market Expansion Strategy',
-    industry: 'Strategy',
-    clientSector: 'Enterprise',
-    rate: '$200/hr',
-    duration: '4 Weeks',
-    description: 'We are seeking an experienced consultant to analyze European market entry feasibility and regulatory requirements for a leading enterprise client in the sector.',
-    scope: [
-      'Analyze European market entry feasibility',
-      'Assess regulatory requirements',
-      'Deliver a comprehensive strategic roadmap'
-    ],
-    deliverables: [
-      'Market Feasibility Report',
-      'Regulatory Compliance Checklist',
-      'Strategic Expansion Roadmap'
-    ]
-  }
-];
+const INITIAL_JOB_OFFERS: JobOffer[] = [];
 
-const INITIAL_TASKS: Task[] = [
-  {
-    id: 'TASK-101',
-    jobId: 'ACTIVE-100', // General initial startup
-    title: 'Verify VPN Workspace & Security Clearance',
-    description: 'Ensure hardware authenticator token matches database keys, confirm secure VPN tunnels, and verify local encrypted partition access.',
-    dueDate: '2026-05-28',
-    priority: 'HIGH',
-    status: 'IN_PROGRESS'
-  },
-  {
-    id: 'TASK-102',
-    jobId: 'ACTIVE-100',
-    title: 'Define ESG Scope & Core Milestones Catalog',
-    description: 'Formulate preliminary reporting guidelines mapping circular ESG indicators for the upcoming PM kickoff sync.',
-    dueDate: '2026-06-03',
-    priority: 'MEDIUM',
-    status: 'ASSIGNED'
-  }
-];
+const INITIAL_TASKS: Task[] = [];
 
-const INITIAL_INVOICES: Invoice[] = [
-  {
-    id: 'INV-401',
-    invoiceNumber: 'INV-2026-001',
-    billingPeriod: 'May 1 - May 15, 2026',
-    hours: 32,
-    rate: 110,
-    amount: 3520,
-    taskTitle: 'Supply Chain Carbon Scoping Review',
-    submittedAt: '2026-05-15T14:30:00Z',
-    fileName: 'orr-supply-chain-carbon-inv.pdf',
-    status: 'PAID',
-    reviewerNotes: 'Approved for payout. Settled on May 19.'
-  },
-  {
-    id: 'INV-402',
-    invoiceNumber: 'INV-2026-002',
-    billingPeriod: 'May 16 - May 24, 2026',
-    hours: 18,
-    rate: 110,
-    amount: 1980,
-    taskTitle: 'Recycler Mass Balance Audit',
-    submittedAt: '2026-05-24T09:15:00Z',
-    fileName: 'orr-mass-balance-audit-inv.pdf',
-    status: 'APPROVED',
-    reviewerNotes: 'Approved by PM Vance, queued for Treasury disbursement.'
-  }
-];
+const INITIAL_INVOICES: Invoice[] = [];
 
-const INITIAL_DOCUMENTS: VaultDocument[] = [
-  {
-    id: 'doc-1',
-    title: 'Master Service Agreement',
-    category: 'LEGAL',
-    type: 'doc',
-    jobId: 'job-1',
-    status: 'UNLOCKED',
-    lastModified: new Date().toISOString(),
-    content: '<h2>1. General Provisions</h2>\n<p>This master agreement covers the initial infrastructure provisions.</p>\n<p>Supplier shall maintain 99.9% uptime for all deployed endpoints.</p>\n<p>...</p>',
-    trackChanges: []
-  },
-  {
-    id: 'doc-2',
-    title: 'Q3 Financial Projections',
-    category: 'FINANCIAL',
-    type: 'sheet',
-    jobId: 'job-1',
-    status: 'UNLOCKED',
-    lastModified: new Date(Date.now() - 86400000).toISOString(),
-    content: 'A1: Revenue, B1: $4.5M\nA2: Expenses, B2: $2.1M\nA3: Profit, B3: $2.4M',
-    trackChanges: []
-  },
-  {
-    id: 'doc-3',
-    title: 'Technical Implementation Slides',
-    category: 'TECHNICAL',
-    type: 'slide',
-    jobId: 'job-2',
-    status: 'UNLOCKED',
-    lastModified: new Date(Date.now() - 172800000).toISOString(),
-    content: 'Slide 1: Architecture Overview\nSlide 2: Deployment Strategy',
-    trackChanges: []
-  }
-];
+const INITIAL_DOCUMENTS: VaultDocument[] = [];
 
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: 'MSG-001',
-    sender: 'PROJECT_MANAGER',
-    text: "Welcome to the ORR Solutions partner workspace! I will be your primary point of contact for all regenerative systems projects you accept through this portal.",
-    timestamp: '2026-05-24T10:00:00Z'
-  },
-  {
-    id: 'MSG-002',
-    sender: 'CONSULTANT',
-    text: "Thank you, Marcus. I am verifying my workspace compliance now. I'll complete onboarding to access the Osa Peninsula reforestation survey scope.",
-    timestamp: '2026-05-24T10:15:00Z'
-  },
-  {
-    id: 'MSG-003',
-    sender: 'PROJECT_MANAGER',
-    text: "Excellent. I've uploaded our default guidelines for 'Living Systems Regeneration' and 'Operational Systems' batter tracing to the Vault. Once onboarded, you can accept matching project charters.",
-    timestamp: '2026-05-24T10:18:00Z'
-  }
-];
+const INITIAL_MESSAGES: Message[] = [];
 
-const INITIAL_MEETINGS: Meeting[] = [
-  {
-    id: 'MEET-301',
-    title: 'ORR Project Onboarding & Scope Alignment Sync',
-    date: '2026-05-26',
-    timeSlot: '11:00 AM - 11:30 AM',
-    joinLink: 'https://orr.zoom.us/j/9082314561?pwd=mock-meeting-key',
-    status: 'UPCOMING'
-  }
-];
+const INITIAL_MEETINGS: Meeting[] = [];
 
-const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'NOT-001',
-    title: 'Invoice Status Update',
-    text: 'Your invoice for Recycler Mass Balance Audit (INV-2026-002) has been APPROVED by the PM.',
-    timestamp: '2026-05-24T09:20:00Z',
-    read: false,
-    type: 'PAYMENT'
-  },
-  {
-    id: 'NOT-002',
-    title: 'New Contract Broadcast',
-    text: 'A high-matching Costa Rican ecological survey brief has been dispatched to your dashboard.',
-    timestamp: '2026-05-25T08:00:00Z',
-    read: false,
-    type: 'JOB'
-  }
-];
+const INITIAL_NOTIFICATIONS: AppNotification[] = [];
 
 export interface Opportunity {
   id: string;
@@ -524,6 +343,18 @@ interface ConsultantState {
   opportunities: Opportunity[];
   setRegistered: (status: boolean) => void;
   setOnboarded: (status: boolean) => void;
+  fetchOpportunities: () => Promise<void>;
+  respondToOpportunity: (id: string, payload: any) => Promise<void>;
+  fetchProfile: () => void;
+  fetchJobs: () => void;
+  fetchTasks: () => void;
+  fetchInvoices: () => void;
+  fetchDocuments: () => void;
+  fetchMessages: (contactId?: string, since?: string) => void;
+  clearMessages: () => void;
+  fetchMeetings: () => void;
+  fetchNotifications: () => void;
+
   updateOpportunityStage: (id: string, stage: OpportunityStage, status: string) => void;
 }
 
@@ -570,12 +401,59 @@ export const useConsultantStore = create<ConsultantState>()(
   loginError: null,
   loginConsultant: async (email, password) => {
     set({ loginError: null });
-    // Mock authentication check
-    if (email.trim() && password.length >= 6) {
-      set({ is2faPending: true });
-      return true;
-    } else {
-      set({ loginError: 'Invalid specialist credentials. Password must exceed 5 characters.' });
+    try {
+      const response = await fetch("https://orr-backend-105825824472.asia-southeast2.run.app/login/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        if (data.data.user.user_type === 'consultant') {
+          // If status is not ACCOUNT_CREATED or EMAIL_VERIFIED, they have completed onboarding
+          const status = data.data.user.status;
+          const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
+          
+          // Map backend status to frontend display strings
+          let frontendStatus = 'Draft';
+          if (status === 'PENDING_REVIEW') frontendStatus = 'Pending Review';
+          if (status === 'APPROVED') frontendStatus = 'Approved';
+          if (status === 'NEEDS_CLARIFICATION') frontendStatus = 'Needs Clarification';
+          if (status === 'REJECTED') frontendStatus = 'Rejected';
+          if (status === 'SUSPENDED') frontendStatus = 'Suspended';
+          if (status === 'ARCHIVED') frontendStatus = 'Archived';
+
+          set({
+            isAuthenticated: true,
+            is2faPending: false,
+            onboardingCompleted: onboardingDone,
+            profileData: {
+              ...get().profileData,
+              profileStatus: frontendStatus,
+            }
+          });
+
+          // Save consultant number so the onboarding form can use it to submit
+          if (data.data.user.consultant_number) {
+            sessionStorage.setItem("consultant_number", data.data.user.consultant_number);
+            get().fetchProfile();
+          }
+
+          if (data.data.access) {
+            localStorage.setItem("access_token", data.data.access);
+          }
+
+          return true;
+        } else {
+          set({ loginError: 'Account is not registered as a specialist.' });
+          return false;
+        }
+      } else {
+        set({ loginError: data.message || 'Invalid specialist credentials.' });
+        return false;
+      }
+    } catch (e) {
+      set({ loginError: 'Network error communicating with authentication server.' });
       return false;
     }
   },
@@ -598,7 +476,298 @@ export const useConsultantStore = create<ConsultantState>()(
       return false;
     }
   },
+
+  fetchProfile: async () => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      if (!cNum) return;
+      
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/profile/`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success && json.data) {
+          const p = json.data;
+          set(state => ({
+            profileData: {
+              ...state.profileData,
+              firstName: p.firstName || state.profileData.firstName,
+              lastName: p.lastName || state.profileData.lastName,
+              displayName: p.displayName || state.profileData.displayName,
+              email: p.email || state.profileData.email,
+              phone: p.phone || state.profileData.phone,
+              country: p.country || state.profileData.country,
+              timezone: p.timezone || state.profileData.timezone,
+              jobTitle: p.jobTitle || state.profileData.jobTitle,
+              profileStatus: p.profileStatus || state.profileData.profileStatus,
+            }
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch profile', e);
+    }
+  },
+  fetchJobs: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/consultant/assignments/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success && json.data) {
+          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
+          const mappedJobs = arr.map((asg: any) => ({
+            id: String(asg.assignment_id || asg.id),
+            title: asg.project_title || 'Active Project',
+            industry: 'Consulting',
+            clientSector: 'Confidential',
+            rate: asg.assignment_budget ? `€${asg.assignment_budget}` : 'TBD',
+            duration: 'TBD',
+            description: asg.invitation_message || 'Active Project Workspace',
+            scope: [],
+            deliverables: [],
+            acceptedAt: asg.access_activation_date || asg.acceptance_timestamp || new Date().toISOString(),
+            status: 'ACTIVE'
+          }));
+          set({ activeJobs: mappedJobs });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch active jobs:', err);
+    }
+  },
+  fetchTasks: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/consultant/tasks/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success && json.data) {
+          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
+          const mappedTasks = arr.map((t: any) => ({
+            id: String(t.task_id || t.id),
+            dbId: t.id,
+            jobId: String(t.project), // Map project to job ID logic (or we can just use ID)
+            title: t.title,
+            description: t.description,
+            dueDate: t.due_date || new Date().toISOString(),
+            priority: t.priority?.toUpperCase() || 'MEDIUM',
+            status: t.status === 'completed' ? 'COMPLETED' : t.status === 'in_review' ? 'UNDER_REVIEW' : t.status === 'in_progress' ? 'IN_PROGRESS' : 'ASSIGNED'
+          }));
+          set({ tasks: mappedTasks });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
+    }
+  },
+  fetchInvoices: () => {},
+    fetchDocuments: async () => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
+      
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+        if (res.ok) {
+          const json = await res.json();
+          let arr = [];
+          if (Array.isArray(json)) arr = json;
+          else if (json && Array.isArray(json.data)) arr = json.data;
+          else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
+          else if (json && Array.isArray(json.results)) arr = json.results;
+          
+          if (arr.length >= 0) {
+            const mapped = arr.map((d: any) => ({
+            id: String(d.id),
+            title: d.title,
+            category: d.category,
+            content: d.content,
+            type: d.doc_type,
+            status: d.status,
+            lastModified: d.created_at,
+            parentId: d.parent_id,
+            trackChanges: [],
+            fileMeta: d.doc_type === 'file' ? { size: d.file_size, mimeType: d.mime_type } : undefined
+          }));
+          set({ documents: mapped });
+        }
+      }
+    } catch(e) { console.error('fetchDocs error', e); }
+  },
+    clearMessages: () => set({ messages: [] }),
+    fetchMessages: async (contactId?: string, since?: string) => {
+      try {
+        const cNum = sessionStorage.getItem('consultant_number');
+        const token = localStorage.getItem('access_token');
+        if (!cNum || !token) return;
+        
+        let url = `https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/`;
+        let params = [];
+        if (contactId && contactId !== 'pm') params.push(`pm_id=${contactId}`);
+        if (since) params.push(`since=${since}`);
+        if (params.length > 0) url += `?${params.join('&')}`;
+        
+        const res = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
+          const mapped = arr.map((m: any) => ({
+            id: String(m.id),
+            text: m.text,
+            sender: m.sender === 'CONSULTANT' ? 'me' : 'them',
+            timestamp: m.created_at || new Date().toISOString(),
+            status: 'sent',
+            attachment: m.attachment_url ? { name: m.attachment_name || 'Attachment', url: m.attachment_url, type: 'file' } : undefined
+          }));
+            const sortedNew = mapped.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            set(state => {
+              if (since) {
+                const nonTempPrev = state.messages.filter(m => !String(m.id).startsWith('temp-'));
+                const existingIds = new Set(nonTempPrev.map(m => m.id));
+                const filteredNew = sortedNew.filter((m: any) => !existingIds.has(m.id));
+                if (filteredNew.length === 0) return { messages: state.messages };
+                return { messages: [...nonTempPrev, ...filteredNew] };
+              }
+              return { messages: sortedNew };
+            });
+          }
+        }
+    } catch(e) { console.error('fetchMessages error', e); }
+  },
+  fetchMeetings: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/meetings/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success && json.data) {
+          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
+          const mappedMeetings = arr.map((m: any) => {
+            const startDate = new Date(m.start_time);
+            return {
+              id: String(m.id),
+              title: m.title || 'Consultant Sync',
+              date: startDate.toLocaleDateString(),
+              timeSlot: `${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+              joinLink: m.join_link || '#',
+              status: m.status === 'completed' ? 'COMPLETED' : 'UPCOMING'
+            };
+          });
+          set({ meetings: mappedMeetings });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch meetings:', err);
+    }
+  },
+  fetchNotifications: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const cNum = sessionStorage.getItem('consultant_number');
+      if (!token || !cNum) return;
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/notifications/`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        let notifs = [];
+        if (Array.isArray(payload)) notifs = payload;
+        else if (payload && Array.isArray(payload.data)) notifs = payload.data;
+        else if (payload && payload.data && Array.isArray(payload.data.data)) notifs = payload.data.data;
+        else if (payload && Array.isArray(payload.results)) notifs = payload.results;
+        
+        const mappedNotifs = notifs.map((n: any) => ({
+          id: String(n.id),
+          title: n.title,
+          text: n.text,
+          timestamp: new Date(n.created_at || new Date()).toLocaleString(),
+          read: n.is_read || false,
+          type: n.notif_type === 'PAYMENT' ? 'success' : (n.notif_type === 'SYSTEM' ? 'info' : 'warning')
+        }));
+        set({ notifications: mappedNotifs });
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  },
+
+  fetchOpportunities: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/opportunities/`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        
+        let opts = [];
+        if (Array.isArray(payload)) {
+          opts = payload;
+        } else if (payload && Array.isArray(payload.data)) {
+          opts = payload.data;
+        } else if (payload && payload.data && Array.isArray(payload.data.data)) {
+          opts = payload.data.data;
+        } else if (payload && Array.isArray(payload.results)) {
+          opts = payload.results;
+        }
+        
+        const mappedOpts = opts.map((o: any) => ({
+          id: String(o.id), // Use pk for API calls
+          title: o.project_title || 'Untitled Opportunity',
+          description: `Urgency: ${o.urgency || 'Normal'}\nService Category: ${o.service_category || 'N/A'}\nExternal: ${o.is_external_consultant ? 'Yes' : 'No'}`,
+          serviceCategory: o.service_category,
+          indicativeDeadline: o.deadline,
+          stage: o.response_status?.toUpperCase() || 'EXPRESSION_OF_INTEREST',
+          statusText: o.response_status?.replace(/_/g, ' ') || 'New',
+          dateAssigned: o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A',
+        }));
+        
+        set({ opportunities: mappedOpts });
+      }
+    } catch (e) {
+      console.error("Failed to fetch opportunities", e);
+    }
+  },
+
+  respondToOpportunity: async (id: string, payload: any) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/opportunities/${id}/respond/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to submit response');
+      }
+      get().fetchOpportunities(); // Refresh the list
+    } catch (e) {
+      console.error('Error responding:', e);
+      throw e;
+    }
+  },
+
   logoutConsultant: () => {
+    localStorage.removeItem("access_token");
     set({
       isAuthenticated: false,
       is2faPending: false,
@@ -667,21 +836,94 @@ export const useConsultantStore = create<ConsultantState>()(
     },
     profileStatus: 'Draft'
   },
-  updateProfile: (data) => {
-    set(state => ({
-      profileData: { ...state.profileData, ...data }
-    }));
-    get().addNotification(
-      'Profile Updated',
-      'Your specialist profile parameters have been successfully updated.',
-      'SYSTEM'
-    );
+  updateProfile: async (data) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      if (!cNum) return;
+      
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/profile/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success) {
+          set(state => ({
+            profileData: { ...state.profileData, ...data }
+          }));
+          get().addNotification(
+            'Profile Updated',
+            'Your specialist profile parameters have been successfully updated in the database.',
+            'SYSTEM'
+          );
+        }
+      } else {
+        console.error('Failed to update profile:', await response.text());
+      }
+    } catch (e) {
+      console.error('Failed to update profile network error:', e);
+    }
   },
 
   // Onboarding State
   onboardingCompleted: false,
   onboardingData: null,
-  completeOnboarding: (industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted, consultantId, fullName, displayName, phone, country, jobTitle) => {
+  completeOnboarding: async (industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted, consultantId, fullName, displayName, phone, country, jobTitle) => {
+    try {
+      const payload = {
+        consultantId, fullName, displayName, phone, country, timezone, jobTitle,
+        industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills,
+        itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling,
+        professionalSummary, sectorExperience, professionalEvidence, portfolioUrl,
+        isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages,
+        hourlyRate, currency, engagementTypes,
+        rightToWork, ndaAccepted, conflictOfInterest, conflictDetails, dataProtection
+      };
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${consultantId}/onboarding/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let errorMsg = 'Failed to submit onboarding profile.';
+        try {
+          const json = await response.json();
+          if (json.data) {
+            const errors = [];
+            for (const key of Object.keys(json.data)) {
+              const errs = json.data[key];
+              if (Array.isArray(errs)) {
+                errors.push(`${key}: ${errs.join(', ')}`);
+              } else {
+                errors.push(`${key}: ${errs}`);
+              }
+            }
+            if (errors.length > 0) errorMsg = errors.join(' | ');
+          } else if (json.message) {
+            errorMsg = json.message;
+          }
+        } catch (parseErr) {
+          // If parsing JSON fails
+        }
+        throw new Error(errorMsg);
+      }
+    } catch (e) {
+      console.error('Error during onboarding:', e);
+      throw e;
+    }
+
     set(state => ({
       onboardingCompleted: true,
       onboardingData: { industry, secondaryIndustries, skills, skillProficiencies, skillYearsExperience, customSkills, itCapabilities, itConfidence, softwareExperience, aiFamiliarity, dataHandling, professionalSummary, sectorExperience, professionalEvidence, cvFile, portfolioUrl, isAvailable, weeklyCapacity, preferredRoles, workModes, geoCoverage, languages, hourlyRate, currency, engagementTypes, rightToWork, conflictOfInterest, conflictDetails, dataProtection, timezone, ndaAccepted },
@@ -792,9 +1034,9 @@ export const useConsultantStore = create<ConsultantState>()(
 
   // Wallet
   walletBalance: {
-    available: 3520, // Pre-seeded paid
-    pending: 1980,   // Pre-seeded approved but pending disbursement
-    totalEarned: 5500
+    available: 0,
+    pending: 0,
+    totalEarned: 0
   },
   invoices: INITIAL_INVOICES,
   submitInvoice: (invoiceData) => {
@@ -857,12 +1099,40 @@ export const useConsultantStore = create<ConsultantState>()(
 
   // Tasks
   tasks: INITIAL_TASKS,
-  updateTaskStatus: (taskId, status) => {
+  updateTaskStatus: async (taskId, status) => {
+    // Optimistic UI update
     set(state => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, status } : t)
     }));
-  },
-  submitTaskDeliverable: (taskId, notes, fileName) => {
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const taskObj = get().tasks.find(t => t.id === taskId);
+      const targetId = taskObj?.dbId || taskId;
+      
+      let backendStatus = 'not_started';
+      if (status === 'IN_PROGRESS') backendStatus = 'in_progress';
+      else if (status === 'UNDER_REVIEW') backendStatus = 'submitted_for_review';
+      else if (status === 'COMPLETED') backendStatus = 'completed';
+      else if (status === 'BLOCKED') backendStatus = 'blocked';
+
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/tasks/${targetId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ status: backendStatus })
+      });
+      
+      if (!response.ok) {
+        console.error("Failed to update task status on backend");
+      }
+    } catch (e) {
+      console.error("Error updating task status", e);
+    }
+  },  submitTaskDeliverable: async (taskId, notes, file) => {
+    // Optimistic update
     set(state => ({
       tasks: state.tasks.map(t => {
         if (t.id === taskId) {
@@ -872,13 +1142,39 @@ export const useConsultantStore = create<ConsultantState>()(
             deliverableSubmitted: {
               submittedAt: new Date().toISOString(),
               notes,
-              fileName
+              fileName: file?.name || 'Deliverable'
             }
           };
         }
         return t;
       })
     }));
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const taskObj = get().tasks.find(t => t.id === taskId);
+      const targetId = taskObj?.dbId || taskId;
+      
+      const formData = new FormData();
+      formData.append('notes', notes);
+      if (file) {
+        formData.append('deliverable_file', file);
+      }
+
+      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/tasks/${targetId}/submit-review/`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        console.error("Failed to submit deliverable to backend");
+      }
+    } catch (e) {
+      console.error("Failed to submit task deliverable", e);
+    }
 
     const taskObj = get().tasks.find(t => t.id === taskId);
 
@@ -887,32 +1183,6 @@ export const useConsultantStore = create<ConsultantState>()(
       `Deliverable archive for "${taskObj?.title || taskId}" has been uploaded.`,
       'SYSTEM'
     );
-
-    // Simulate PM approving task and offering an invoice trigger
-    setTimeout(() => {
-      set(state => ({
-        tasks: state.tasks.map(t => {
-          if (t.id === taskId) {
-            return { ...t, status: 'COMPLETED' as const };
-          }
-          return t;
-        }),
-        messages: [
-          ...state.messages,
-          {
-            id: `MSG-${Date.now()}`,
-            sender: 'PROJECT_MANAGER',
-            text: `Hey, I just audited your final deliverable package for "${taskObj?.title || 'your deliverable'}". The depth of ecological data is perfect! I've marked the task as COMPLETED. Please head to your Wallet tab to submit your digital invoice.`,
-            timestamp: new Date().toISOString()
-          }
-        ]
-      }));
-      get().addNotification(
-        'Milestone Deliverable Approved',
-        `Your deliverable for "${taskObj?.title}" has been approved! You can now file your billing invoice.`,
-        'DOCUMENT'
-      );
-    }, 10000);
   },
 
   // Document Vault & Track Changes Simulation
@@ -962,118 +1232,181 @@ export const useConsultantStore = create<ConsultantState>()(
       ]
     }));
   },
-  createDocument: (type, title, parentId) => {
-    set(state => ({
-      documents: [
-        {
-          id: `doc-${Date.now()}`,
+  createDocument: async (type, title, parentId) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
+      
+      const content = type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '';
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
           title,
+          doc_type: type,
           category: 'TECHNICAL',
-          content: type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '',
-          type,
-          status: 'UNLOCKED',
-          lastModified: new Date().toISOString(),
-          trackChanges: [],
-          parentId
-        },
-        ...state.documents
-      ]
-    }));
+          content,
+          parent_id: parentId || null
+        })
+      });
+      if (res.ok) {
+        get().fetchDocuments();
+      }
+    } catch(e) { console.error('createDoc error', e); }
   },
-  uploadFileToVault: (fileObj, parentId) => {
-    set(state => ({
-      documents: [
-        {
-          id: `file-${Date.now()}`,
+  uploadFileToVault: async (fileObj, parentId) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
+      
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
           title: fileObj.name,
+          doc_type: 'file',
           category: 'OPERATIONAL',
-          content: '',
-          type: 'file',
-          status: 'UNLOCKED',
-          lastModified: new Date().toISOString(),
-          trackChanges: [],
-          parentId,
-          fileMeta: {
-            size: fileObj.size,
-            mimeType: fileObj.type
-          }
-        },
-        ...state.documents
-      ]
-    }));
+          content: (fileObj as any).content || '', // Base64 content from file read
+          parent_id: parentId || null,
+          file_size: fileObj.size,
+          mime_type: fileObj.type
+        })
+      });
+      if (res.ok) {
+        get().fetchDocuments();
+      }
+    } catch(e) { console.error('uploadFile error', e); }
   },
 
   // Chat Secure Messaging
   messages: INITIAL_MESSAGES,
-  sendChatMessage: (text, attachment) => {
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: 'CONSULTANT',
-      text,
-      timestamp: new Date().toISOString(),
-      attachment
-    };
-
+  sendChatMessage: async (text, attachment, contactId = null) => {
+    // Optimistic Update
+    const tempId = `msg-${Date.now()}`;
     set(state => ({
-      messages: [...state.messages, newMsg]
+      messages: [
+        ...state.messages,
+        { id: tempId, text, sender: 'CONSULTANT', timestamp: new Date().toISOString(), attachment }
+      ]
     }));
-
-    // Automated smart responder based on keyword triggers
-    setTimeout(() => {
-      let pmReply = "Received your secure ping. I am checking our compliance logs and will sync back with you shortly.";
-      const query = text.toLowerCase();
+    
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
       
-      if (query.includes('hello') || query.includes('hi ')) {
-        pmReply = "Hello! Let me know if you have questions regarding your active reforestation scopes or upcoming provenance audits.";
-      } else if (query.includes('invoice') || query.includes('pay') || query.includes('wallet') || query.includes('money') || query.includes('billing')) {
-        pmReply = "Our billing cycle runs bi-weekly. Once your soil reports or schema codes are marked 'COMPLETED' on the task board, submit your digital invoice. Treasury usually processes approved payouts within 48 hours.";
-      } else if (query.includes('deadline') || query.includes('time') || query.includes('late') || query.includes('extension')) {
-        pmReply = "If you need a timeline extension, write a quick justification here. I can update task due dates on our internal PM dashboard.";
-      } else if (query.includes('contract') || query.includes('scope') || query.includes('job') || query.includes('survey')) {
-        pmReply = "Project parameters and guidelines are fully documented in the secure 'Document Vault' unlocked upon accepting a job. Let me know if there's any parameter we need to review.";
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          text,
+          consultant: cNum,
+          pm: (contactId && contactId !== 'pm' && contactId !== 'admin') ? parseInt(String(contactId), 10) : null,
+          sender: 'CONSULTANT',
+          attachment_name: attachment?.name || '',
+          attachment_url: attachment?.url || ''
+        })
+      });
+      if (res.ok) {
+        get().fetchMessages();
       }
+    } catch(e) { console.error('sendMsg error', e); }
+  },
 
-      set(state => ({
-        messages: [
-          ...state.messages,
-          {
-            id: `MSG-${Date.now()}`,
-            sender: 'PROJECT_MANAGER',
-            text: pmReply,
-            timestamp: new Date().toISOString()
-          }
-        ]
-      }));
-
-      get().addNotification(
-        'New Encrypted Message from PM',
-        pmReply.substring(0, 50) + '...',
-        'CHAT'
-      );
-    }, 1200);
+  pmDirectory: [],
+  fetchPmDirectory: async () => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
+      
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const result = await res.json();
+        const actualData = result?.data?.data || result?.data || [];
+        set({ pmDirectory: Array.isArray(actualData) ? actualData : [] });
+      }
+    } catch(e) {}
   },
 
   // Meetings Scheduler
-  meetings: INITIAL_MEETINGS,
-  bookMeeting: (title, date, timeSlot) => {
-    const newMeeting: Meeting = {
-      id: `MEET-${Date.now()}`,
-      title,
-      date,
-      timeSlot,
-      joinLink: `https://orr.zoom.us/j/${Math.floor(1000000000 + Math.random() * 9000000000)}?pwd=mock-meet-${Date.now().toString().slice(-4)}`,
-      status: 'UPCOMING'
-    };
+  meetings: [],
+  fetchMeetings: async () => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
+      
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/meetings/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const result = await res.json();
+        const data = result.data || result;
+        const mappedMeetings = data.map((m: any) => {
+          let dateStr = 'Unknown';
+          let timeStr = 'Unknown';
+          if (m.start_time && m.end_time) {
+              const startDate = new Date(m.start_time);
+              const endDate = new Date(m.end_time);
+              dateStr = startDate.toLocaleDateString();
+              timeStr = `${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+          }
+          return {
+            id: m.id.toString(),
+            title: m.title,
+            date: dateStr,
+            timeSlot: timeStr,
+            joinLink: m.join_link || '#',
+            status: m.status
+          };
+        });
+        set({ meetings: mappedMeetings });
+      }
+    } catch(e) { console.error('fetchMeetings error', e); }
+  },
+  
+  bookMeeting: async (title, date, timeSlot, pmId) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (!cNum || !token) return;
 
-    set(state => ({
-      meetings: [...state.meetings, newMeeting]
-    }));
+      // Basic parsing of date and timeSlot (e.g. "10:00 AM - 11:00 AM")
+      // In a real app we'd get start/end time directly from the form, but let's do a basic conversion
+      const startDate = new Date(date);
+      // Assuming timeSlot starts with something like "10:00"
+      const [startHourStr] = timeSlot.split(' - ');
+      if (startHourStr) {
+         const [hr, min] = startHourStr.replace(/[^0-9:]/g, '').split(':');
+         if (hr) startDate.setHours(parseInt(hr, 10), parseInt(min || '0', 10));
+      }
+      const endDate = new Date(startDate.getTime() + 60*60*1000); // add 1 hr
 
-    get().addNotification(
-      'Meeting Scheduled',
-      `Meeting booked with Project Manager on ${date} at ${timeSlot}.`,
-      'SYSTEM'
-    );
+      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/meetings/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          title,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          pm: pmId ? parseInt(pmId, 10) : null
+        })
+      });
+      
+      if (res.ok) {
+        get().fetchMeetings();
+        get().addNotification(
+          'Meeting Scheduled',
+          `Meeting booked with Project Manager on ${date} at ${timeSlot}.`,
+          'SYSTEM'
+        );
+      }
+    } catch(e) { console.error('bookMeeting error', e); }
   },
 
   // Notifications
