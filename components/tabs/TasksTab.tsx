@@ -10,7 +10,8 @@ import {
   TrendingUp,
   GripHorizontal,
   ChevronRight,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { 
