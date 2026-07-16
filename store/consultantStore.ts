@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { OpportunityStage } from '@/components/tabs/OpportunitiesTab';
+
+export type OpportunityStage = 
+  | 'INVITED'
+  | 'VIEWED'
+  | 'INTERESTED'
+  | 'CLARIFICATION_REQUESTED'
+  | 'DECLINED'
+  | 'SHORTLISTED'
+  | 'NOT_SHORTLISTED'
+  | 'SELECTED'
+  | 'ASSIGNMENT_OFFERED'
+  | 'ASSIGNMENT_ACCEPTED'
+  | 'ASSIGNMENT_DECLINED'
+  | 'CONFLICT_REVIEW_REQUIRED'
+  | 'ACCESS_ACTIVATION'
+  | 'EXPRESSION_OF_INTEREST'
+  | 'NOT_RESPONDED'
+  | 'SELECTION'
+  | 'ASSIGNMENT_ACCEPTANCE';
+
 
 // Types
 export interface ProfileData {
@@ -62,7 +81,7 @@ export interface ProfileData {
   };
   
   // 5. System Fields
-  profileStatus: 'Draft' | 'Submitted' | 'Pending Review' | 'Approved' | 'Needs Clarification' | 'Rejected' | 'Suspended';
+  profileStatus: 'Draft' | 'Submitted' | 'Pending Review' | 'Approved' | 'Needs Clarification' | 'Rejected' | 'Suspended' | 'Archived';
 }
 export interface JobOffer {
   id: string;
@@ -104,7 +123,7 @@ export interface Task {
   description: string;
   dueDate: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  status: 'ASSIGNED' | 'IN_PROGRESS' | 'UNDER_REVIEW' | 'COMPLETED';
+  status: 'ASSIGNED' | 'IN_PROGRESS' | 'UNDER_REVIEW' | 'COMPLETED' | 'BLOCKED' | 'NOT_STARTED';
   deliverableSubmitted?: {
     submittedAt: string;
     notes: string;
@@ -280,7 +299,7 @@ interface ConsultantState {
   // Tasks
   tasks: Task[];
   updateTaskStatus: (taskId: string, status: Task['status']) => void;
-  submitTaskDeliverable: (taskId: string, notes: string, fileName: string) => void;
+  submitTaskDeliverable: (taskId: string, notes: string, file: any) => Promise<void>;
 
   // Document Vault
   documents: VaultDocument[];
@@ -288,14 +307,16 @@ interface ConsultantState {
   resetDocumentChanges: (docId: string) => void;
   updateDocumentContent: (docId: string, newTitle: string, newContent: string) => void;
   createFolder: (title: string, parentId: string | null) => void;
-  createDocument: (type: 'doc' | 'sheet' | 'slide', title: string, parentId: string | null) => void;
-  uploadFileToVault: (fileObj: { name: string, type: string, size: number }, parentId: string | null) => void;
+  createDocument: (type: 'doc' | 'sheet' | 'slide', title: string, parentId: string | null) => Promise<void>;
+  uploadFileToVault: (fileObj: any, parentId: string | null) => Promise<void>;
 
   // Chat
-  fetchMessages: () => Promise<void>;
+  messages: Message[];
+  fetchMessages: (contactId?: string, since?: string) => Promise<void>;
   sendChatMessage: (text: string, attachment?: any, contactId?: string | null) => Promise<void>;
   pmDirectory: any[];
   fetchPmDirectory: () => Promise<void>;
+  clearMessages: () => void;
 
   // Meetings
   meetings: Meeting[];
@@ -307,6 +328,24 @@ interface ConsultantState {
   addNotification: (title: string, text: string, type: AppNotification['type']) => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
+
+  // Profile/Other fetch actions
+  fetchProfile: () => Promise<void>;
+  fetchJobs: () => Promise<void>;
+  fetchTasks: () => Promise<void>;
+  fetchInvoices: () => void;
+  fetchDocuments: () => Promise<void>;
+  fetchNotifications: () => Promise<void>;
+
+  // Opportunities and other fields
+  isRegistered: boolean;
+  isOnboarded: boolean;
+  opportunities: Opportunity[];
+  setRegistered: (status: boolean) => void;
+  setOnboarded: (status: boolean) => void;
+  fetchOpportunities: () => Promise<void>;
+  respondToOpportunity: (id: string, payload: any) => Promise<void>;
+  updateOpportunityStage: (id: string, stage: OpportunityStage, status: string) => void;
 }
 
 // Re-seeded Seed Data with real ORR Solutions parameters
@@ -327,9 +366,18 @@ const INITIAL_NOTIFICATIONS: AppNotification[] = [];
 export interface Opportunity {
   id: string;
   title: string;
-  dateAssigned: string;
-  status: string;
+  description: string;
+  serviceCategory?: string;
+  requiredExpertise?: string[];
+  expectedRole?: string;
+  expectedDeliverable?: string;
+  indicativeDeadline?: string;
+  workMode?: string;
+  requiredLanguages?: string[];
   stage: OpportunityStage;
+  status?: string;
+  statusText?: string;
+  dateAssigned: string;
   responseTimestamp?: string;
   lastUpdated?: string;
   createdBy?: string;
@@ -337,26 +385,6 @@ export interface Opportunity {
   summaryVersion?: string;
 }
 
-interface ConsultantState {
-  isRegistered: boolean;
-  isOnboarded: boolean;
-  opportunities: Opportunity[];
-  setRegistered: (status: boolean) => void;
-  setOnboarded: (status: boolean) => void;
-  fetchOpportunities: () => Promise<void>;
-  respondToOpportunity: (id: string, payload: any) => Promise<void>;
-  fetchProfile: () => void;
-  fetchJobs: () => void;
-  fetchTasks: () => void;
-  fetchInvoices: () => void;
-  fetchDocuments: () => void;
-  fetchMessages: (contactId?: string, since?: string) => void;
-  clearMessages: () => void;
-  fetchMeetings: () => void;
-  fetchNotifications: () => void;
-
-  updateOpportunityStage: (id: string, stage: OpportunityStage, status: string) => void;
-}
 
 // Zustand Store implementation
 export const useConsultantStore = create<ConsultantState>()(
@@ -368,6 +396,7 @@ export const useConsultantStore = create<ConsultantState>()(
         {
           id: 'ORR-OPP-000001',
           title: 'Strategic Energy Advisory',
+          description: 'Strategic Energy Advisory project to evaluate regional energy strategies.',
           dateAssigned: 'Oct 24, 2023',
           status: 'New Opportunity',
           stage: 'EXPRESSION_OF_INTEREST',
@@ -415,7 +444,7 @@ export const useConsultantStore = create<ConsultantState>()(
           const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
           
           // Map backend status to frontend display strings
-          let frontendStatus = 'Draft';
+          let frontendStatus: ProfileData['profileStatus'] = 'Draft';
           if (status === 'PENDING_REVIEW') frontendStatus = 'Pending Review';
           if (status === 'APPROVED') frontendStatus = 'Approved';
           if (status === 'NEEDS_CLARIFICATION') frontendStatus = 'Needs Clarification';
@@ -627,12 +656,12 @@ export const useConsultantStore = create<ConsultantState>()(
           const mapped = arr.map((m: any) => ({
             id: String(m.id),
             text: m.text,
-            sender: m.sender === 'CONSULTANT' ? 'me' : 'them',
+            sender: m.sender === 'CONSULTANT' ? 'CONSULTANT' : 'PROJECT_MANAGER',
             timestamp: m.created_at || new Date().toISOString(),
             status: 'sent',
             attachment: m.attachment_url ? { name: m.attachment_name || 'Attachment', url: m.attachment_url, type: 'file' } : undefined
           }));
-            const sortedNew = mapped.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            const sortedNew = mapped.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             set(state => {
               if (since) {
                 const nonTempPrev = state.messages.filter(m => !String(m.id).startsWith('temp-'));
@@ -647,34 +676,7 @@ export const useConsultantStore = create<ConsultantState>()(
         }
     } catch(e) { console.error('fetchMessages error', e); }
   },
-  fetchMeetings: async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/meetings/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const json = await response.json();
-        if (json.success && json.data) {
-          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
-          const mappedMeetings = arr.map((m: any) => {
-            const startDate = new Date(m.start_time);
-            return {
-              id: String(m.id),
-              title: m.title || 'Consultant Sync',
-              date: startDate.toLocaleDateString(),
-              timeSlot: `${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
-              joinLink: m.join_link || '#',
-              status: m.status === 'completed' ? 'COMPLETED' : 'UPCOMING'
-            };
-          });
-          set({ meetings: mappedMeetings });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch meetings:', err);
-    }
-  },
+
   fetchNotifications: async () => {
     try {
       const token = localStorage.getItem('access_token');

@@ -3,29 +3,7 @@
 import React, { useState } from 'react';
 import { Briefcase, ChevronRight, ChevronLeft, Search, Filter } from 'lucide-react';
 import OpportunityResponseForm from '@/components/opportunities/OpportunityResponseForm';
-import { useConsultantStore } from '@/store/consultantStore';
-
-export type OpportunityStage = 'EXPRESSION_OF_INTEREST' | 'SELECTION' | 'ASSIGNMENT_ACCEPTANCE' | 'ACCESS_ACTIVATION';
-
-export interface Opportunity {
-  id: string;
-  title: string;
-  description: string;
-  serviceCategory?: string;
-  requiredExpertise?: string[];
-  expectedRole?: string;
-  expectedDeliverable?: string;
-  indicativeDeadline?: string;
-  workMode?: string;
-  requiredLanguages?: string[];
-  stage: OpportunityStage;
-  statusText: string;
-  dateAssigned: string;
-  responseTimestamp?: string;
-  lastUpdated?: string;
-  createdBy?: string;
-  summaryVersion?: string;
-}
+import { useConsultantStore, OpportunityStage, Opportunity } from '@/store/consultantStore';
 
 export default function OpportunitiesTab() {
   const opportunities = useConsultantStore(state => state.opportunities || []);

@@ -200,7 +200,7 @@ export default function ChatTab() {
           {/* Active message list */}
           <div className="flex-1 p-6 overflow-y-auto space-y-6 relative">
             {messages.map(msg => {
-              const isConsultant = msg.sender === 'CONSULTANT' || msg.sender === 'me';
+              const isConsultant = msg.sender === 'CONSULTANT';
               return (
                 <div
                   key={msg.id}
@@ -239,7 +239,7 @@ export default function ChatTab() {
                       {msg.text && <div>{msg.text}</div>}
                     </div>
                     <span className={`text-[10px] text-slate-500 block font-medium ${isConsultant ? 'text-right' : 'text-left'}`}>
-                      {new Date(msg.created_at || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
 
