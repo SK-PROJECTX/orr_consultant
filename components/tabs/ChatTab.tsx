@@ -43,7 +43,7 @@ export default function ChatTab() {
   useEffect(() => {
     const cNum = sessionStorage.getItem('consultant_number');
     if (!cNum) return;
-    fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`)
+    fetch(`http://127.0.0.1:8000/api/v1/consultants/${cNum}/messages/directory/`)
       .then(res => res.json())
       .then(resData => {
         let data = resData;

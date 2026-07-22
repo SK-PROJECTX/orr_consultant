@@ -8,6 +8,8 @@ import { GoogleButton } from "@/components/ui/GoogleButton";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { useConsultantStore } from "@/store/consultantStore";
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -24,6 +26,9 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
+  const { signInWithGoogle, isLoading: isGoogleLoading, renderGoogleButton } = useGoogleAuth();
+
+  const registerConsultant = useConsultantStore(state => state.registerConsultant);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,27 +42,15 @@ export default function RegisterPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch("https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/auth/register/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
+      const response = await registerConsultant(formData.email, formData.password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Assume data contains { success: true, data: { consultant_number: '...' } }
+      if (response.success) {
         alert("Consultant Account Registered successfully! Redirecting to verification.");
         // Store email temporarily for verification step
         sessionStorage.setItem("verify_email", formData.email);
         router.push("/verify");
       } else {
-        setError(data.message || "Registration failed. Please try again.");
+        setError(response.message || "Registration failed. Please try again.");
       }
     } catch (err) {
       setError("Network error. Please ensure the backend is running.");
@@ -225,9 +218,10 @@ export default function RegisterPage() {
 
             <div className="mt-6">
               <GoogleButton
-                onClick={() => alert("Google OAuth2 registration simulation triggered for specialist account validation.")}
+                onClick={signInWithGoogle}
                 text="Continue with Google"
-                isLoading={false}
+                isLoading={isGoogleLoading}
+                renderGoogleButton={renderGoogleButton}
               />
             </div>
           </div>

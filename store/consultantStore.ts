@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { vaultApi } from '@/lib/vault-api';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export type OpportunityStage = 
   | 'INVITED'
@@ -195,6 +198,9 @@ interface ConsultantState {
   is2faPending: boolean;
   loginError: string | null;
   loginConsultant: (email: string, password: string) => Promise<boolean>;
+  registerConsultant: (email: string, password: string) => Promise<{success: boolean, message?: string}>;
+  verifyConsultant: (email: string, consultantNumber: string) => Promise<{success: boolean, message?: string}>;
+  googleLogin: (credential: string) => Promise<boolean>;
   verify2fa: (code: string) => boolean;
   logoutConsultant: () => void;
 
@@ -423,15 +429,76 @@ export const useConsultantStore = create<ConsultantState>()(
       // Language State
       language: 'en',
       setLanguage: (lang) => set({ language: lang }),
+      
+      registerConsultant: async (email: string, password: string) => {
+        return { success: true };
+      },
+      verifyConsultant: async (email: string, consultantNumber: string) => {
+        return { success: true };
+      },
 
   // Authentication & 2FA State
   isAuthenticated: false,
   is2faPending: false,
   loginError: null,
+  googleLogin: async (credential) => {
+    set({ loginError: null });
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/google-login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential, portal: "consultant" })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        if (data.data.user.user_type === 'consultant') {
+          const status = data.data.user.status || 'PENDING_REVIEW';
+          const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
+          
+          let frontendStatus: ProfileData['profileStatus'] = 'Draft';
+          if (status === 'PENDING_REVIEW') frontendStatus = 'Pending Review';
+          if (status === 'APPROVED') frontendStatus = 'Approved';
+          if (status === 'NEEDS_CLARIFICATION') frontendStatus = 'Needs Clarification';
+          if (status === 'REJECTED') frontendStatus = 'Rejected';
+          if (status === 'SUSPENDED') frontendStatus = 'Suspended';
+          if (status === 'ARCHIVED') frontendStatus = 'Archived';
+
+          set({
+            isAuthenticated: true,
+            is2faPending: false,
+            onboardingCompleted: onboardingDone,
+            profileData: {
+              ...get().profileData,
+              profileStatus: frontendStatus,
+            }
+          });
+
+          if (data.data.user.consultant_number) {
+            sessionStorage.setItem("consultant_number", data.data.user.consultant_number);
+            get().fetchProfile();
+          }
+
+          if (data.data.access) {
+            localStorage.setItem("access_token", data.data.access);
+          }
+          return true;
+        } else {
+          set({ loginError: 'Account is not registered as a specialist.' });
+          return false;
+        }
+      } else {
+        set({ loginError: data.message || 'Google authentication failed.' });
+        return false;
+      }
+    } catch (e) {
+      set({ loginError: 'Network error communicating with authentication server.' });
+      return false;
+    }
+  },
   loginConsultant: async (email, password) => {
     set({ loginError: null });
     try {
-      const response = await fetch("https://orr-backend-105825824472.asia-southeast2.run.app/login/", {
+      const response = await fetch(`${API_BASE}/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -512,7 +579,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/profile/`, {
+      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       
@@ -543,7 +610,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchJobs: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/consultant/assignments/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/consultant/assignments/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -573,7 +640,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchTasks: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/consultant/tasks/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/consultant/tasks/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -604,7 +671,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
         if (res.ok) {
@@ -640,7 +707,7 @@ export const useConsultantStore = create<ConsultantState>()(
         const token = localStorage.getItem('access_token');
         if (!cNum || !token) return;
         
-        let url = `https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/`;
+        let url = `${API_BASE}/api/v1/consultants/${cNum}/messages/`;
         let params = [];
         if (contactId && contactId !== 'pm') params.push(`pm_id=${contactId}`);
         if (since) params.push(`since=${since}`);
@@ -682,7 +749,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       const cNum = sessionStorage.getItem('consultant_number');
       if (!token || !cNum) return;
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/notifications/`, {
+      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/notifications/`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
@@ -711,7 +778,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchOpportunities: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/opportunities/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/opportunities/`, {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
       if (response.ok) {
@@ -749,7 +816,7 @@ export const useConsultantStore = create<ConsultantState>()(
   respondToOpportunity: async (id: string, payload: any) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/opportunities/${id}/respond/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/opportunities/${id}/respond/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -844,7 +911,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/profile/`, {
+      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -889,7 +956,7 @@ export const useConsultantStore = create<ConsultantState>()(
       };
 
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${consultantId}/onboarding/`, {
+      const response = await fetch(`${API_BASE}/api/v1/consultants/${consultantId}/onboarding/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1118,7 +1185,7 @@ export const useConsultantStore = create<ConsultantState>()(
       else if (status === 'COMPLETED') backendStatus = 'completed';
       else if (status === 'BLOCKED') backendStatus = 'blocked';
 
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/tasks/${targetId}/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/tasks/${targetId}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1163,7 +1230,7 @@ export const useConsultantStore = create<ConsultantState>()(
         formData.append('deliverable_file', file);
       }
 
-      const response = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/pm/v1/tasks/${targetId}/submit-review/`, {
+      const response = await fetch(`${API_BASE}/pm/v1/tasks/${targetId}/submit-review/`, {
         method: 'POST',
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -1241,7 +1308,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum || !token) return;
       
       const content = type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '';
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1263,7 +1330,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/documents/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1299,7 +1366,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1324,7 +1391,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/directory/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1343,7 +1410,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/meetings/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1389,7 +1456,7 @@ export const useConsultantStore = create<ConsultantState>()(
       }
       const endDate = new Date(startDate.getTime() + 60*60*1000); // add 1 hr
 
-      const res = await fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/meetings/`, {
+      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({

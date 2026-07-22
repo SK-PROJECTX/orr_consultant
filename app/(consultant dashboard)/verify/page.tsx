@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useConsultantStore } from "@/store/consultantStore";
 
 export default function VerifyPage() {
   const { t } = useTranslation();
@@ -25,6 +26,8 @@ export default function VerifyPage() {
     }
   }, []);
 
+  const verifyConsultant = useConsultantStore(state => state.verifyConsultant);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -37,26 +40,15 @@ export default function VerifyPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch("https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/auth/verify/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          consultant_number: consultantNumber,
-        }),
-      });
+      const response = await verifyConsultant(email, consultantNumber);
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.success) {
         alert("Verification successful! You can now access the portal.");
         // Clear session storage
         sessionStorage.removeItem("verify_email");
         router.push("/signin");
       } else {
-        setError(data.message || "Verification failed. Please check your number.");
+        setError(response.message || "Verification failed. Please check your number.");
       }
     } catch (err) {
       setError("Network error. Please ensure the backend is running.");
