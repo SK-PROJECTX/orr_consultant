@@ -9,10 +9,12 @@ import { GoogleButton } from '@/components/ui/GoogleButton';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function SignInPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { signInWithGoogle, isLoading: isGoogleLoading, renderGoogleButton } = useGoogleAuth();
 
   const loginConsultant = useConsultantStore(state => state.loginConsultant);
   const verify2fa = useConsultantStore(state => state.verify2fa);
@@ -354,8 +356,9 @@ export default function SignInPage() {
             {/* Custom Google authentication Button */}
             <div className="mt-6">
               <GoogleButton
-                onClick={() => alert("Google OAuth2 authentication simulation triggered for consultant account validation.")}
-                isLoading={false}
+                onClick={signInWithGoogle}
+                isLoading={isGoogleLoading}
+                renderGoogleButton={renderGoogleButton}
               />
             </div>
           </div>
