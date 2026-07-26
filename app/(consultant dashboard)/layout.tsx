@@ -71,7 +71,7 @@ export default function DashboardLayout({
     setIsMounted(true);
   }, []);
 
-  const isAuthPage = pathname === '/signin' || pathname === '/register' || pathname === '/verify';
+  const isAuthPage = pathname === '/signin' || pathname === '/register' || pathname === '/verify' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/forgot-password/' || pathname === '/reset-password/';
 
   useEffect(() => {
     if (isMounted && !isAuthenticated && !isAuthPage) {
