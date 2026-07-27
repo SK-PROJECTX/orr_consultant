@@ -203,6 +203,8 @@ interface ConsultantState {
   googleLogin: (credential: string) => Promise<boolean>;
   verify2fa: (code: string) => boolean;
   logoutConsultant: () => void;
+  forgotPassword: (email: string) => Promise<{success: boolean, message?: string}>;
+  resetPassword: (uid: string, token: string, new_password: string) => Promise<{success: boolean, message?: string}>;
 
   // Profile
   profileData: ProfileData;
@@ -436,6 +438,40 @@ export const useConsultantStore = create<ConsultantState>()(
       verifyConsultant: async (email: string, consultantNumber: string) => {
         return { success: true };
       },
+      forgotPassword: async (email: string) => {
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/forget-password/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, portal: "consultant" })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            return { success: true, message: data.message || "Password reset email sent." };
+          } else {
+            return { success: false, message: data.message || data.error || "Failed to send reset email." };
+          }
+        } catch (e: any) {
+          return { success: false, message: e.message || "Network error" };
+        }
+      },
+      resetPassword: async (uid: string, token: string, new_password: string) => {
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/verify-reset-password/${uid}/${token}/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid, token, new_password })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            return { success: true, message: data.message || "Password reset successfully." };
+          } else {
+            return { success: false, message: data.message || data.error || "Failed to reset password." };
+          }
+        } catch (e: any) {
+          return { success: false, message: e.message || "Network error" };
+        }
+      },
 
   // Authentication & 2FA State
   isAuthenticated: false,
@@ -501,7 +537,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const response = await fetch(`${API_BASE}/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, portal: 'consultant' })
       });
       const data = await response.json();
       if (response.ok) {
