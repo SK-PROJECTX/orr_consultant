@@ -2,8 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     /* config options here */
-    output: "export",
     trailingSlash: false,
+    env: {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: '105825824472-kkg988lc04agqu206kkmt92iplcq0lvh.apps.googleusercontent.com',
+    },
     async headers() {
         return [
             {
