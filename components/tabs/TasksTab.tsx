@@ -16,12 +16,21 @@ import {
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { 
   DndContext, 
-  useDraggable, 
-  useDroppable, 
   DragEndEvent,
   DragOverlay,
-  defaultDropAnimationSideEffects
+  defaultDropAnimationSideEffects,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  closestCorners,
+  useDroppable
 } from '@dnd-kit/core';
+import { 
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface DroppableColumnProps {
   id: Task['status'];
@@ -52,22 +61,25 @@ const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, task
         </span>
       </div>
       <div className="p-4 flex-1 space-y-4 overflow-y-auto min-h-[400px]">
-        {tasks.map(task => (
-          <DraggableTaskCard key={task.id} task={task} onSubmitClick={() => onSubmitClick?.(task.id)} onViewClick={() => onViewClick?.(task.id)} />
-        ))}
+        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map(task => (
+            <SortableTaskCard key={task.id} task={task} onSubmitClick={() => onSubmitClick?.(task.id)} onViewClick={() => onViewClick?.(task.id)} />
+          ))}
+        </SortableContext>
       </div>
     </div>
   );
 };
 
-const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitClick?: () => void, onViewClick?: () => void }> = ({ task, isOverlay, onSubmitClick, onViewClick }) => {
+const SortableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitClick?: () => void, onViewClick?: () => void }> = ({ task, isOverlay, onSubmitClick, onViewClick }) => {
   const { t } = useTranslation();
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
 
   const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    transform: CSS.Transform.toString(transform),
+    transition,
   } : undefined;
 
   const getPriorityBadge = (priority: Task['priority']) => {
@@ -89,9 +101,10 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitCli
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-pointer hover:bg-white/5'}`}
+      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-grab active:cursor-grabbing hover:bg-white/5'}`}
       onClick={() => onViewClick?.()}
       {...attributes}
+      {...listeners}
     >
       {task.status === 'IN_PROGRESS' && (
         <div className="absolute top-0 left-0 w-1 h-full bg-blue-400" />
@@ -99,13 +112,7 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitCli
       
       <div className="flex justify-between items-start">
         <span className="text-[9px] font-mono text-slate-500 font-extrabold">{task.id}</span>
-        <div 
-          className="cursor-grab hover:text-white transition-colors text-slate-600 p-1 -mr-1 -mt-1 rounded hover:bg-white/10"
-          {...listeners}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-        >
+        <div className="text-slate-600 p-1 -mr-1 -mt-1 rounded hover:bg-white/10 hover:text-white transition-colors">
           <GripHorizontal size={14} />
         </div>
       </div>
@@ -131,7 +138,7 @@ const DraggableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitCli
       {task.status === 'IN_PROGRESS' && (
         <div 
            className="mt-2 text-[9px] font-black text-blue-400 flex items-center gap-1 cursor-pointer hover:text-blue-300"
-           onPointerDown={(e) => {
+           onClick={(e) => {
              e.stopPropagation(); 
              onSubmitClick?.();
            }}
@@ -150,16 +157,36 @@ export default function TasksTab() {
   const updateTaskStatus = useConsultantStore(state => state.updateTaskStatus);
   const submitTaskDeliverable = useConsultantStore(state => state.submitTaskDeliverable);
 
-  React.useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  const isSubmittingRef = React.useRef(submittingTaskId);
+  const isDraggingRef = React.useRef(activeDragId);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  React.useEffect(() => {
+    isSubmittingRef.current = submittingTaskId;
+  }, [submittingTaskId]);
+
+  React.useEffect(() => {
+    isDraggingRef.current = activeDragId;
+  }, [activeDragId]);
+
+  React.useEffect(() => {
+    fetchTasks();
+    const interval = setInterval(() => {
+      if (!isSubmittingRef.current && !isDraggingRef.current) {
+        fetchTasks();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchTasks]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -199,10 +226,18 @@ export default function TasksTab() {
     if (!over) return;
 
     const taskId = active.id as string;
-    const currentStatus = tasks.find(t => t.id === taskId)?.status;
-    const targetStatus = over.id as Task['status'];
+    const overId = over.id as string;
+    
+    const activeTask = tasks.find(t => t.id === taskId);
+    const overTask = tasks.find(t => t.id === overId);
+    
+    const currentStatus = activeTask?.status;
+    let targetStatus = overId as Task['status'];
+    if (overTask) {
+      targetStatus = overTask.status;
+    }
 
-    if (currentStatus === targetStatus) return;
+    if (currentStatus === targetStatus || !targetStatus) return;
 
     if (targetStatus === 'UNDER_REVIEW' && currentStatus !== 'UNDER_REVIEW') {
       setSubmittingTaskId(taskId);
@@ -239,7 +274,7 @@ export default function TasksTab() {
       </div>
 
       <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-6 h-full items-start">
             {cols.map(col => (
               <DroppableColumn 
@@ -255,7 +290,7 @@ export default function TasksTab() {
           </div>
 
           <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }}>
-            {activeDragTask ? <DraggableTaskCard task={activeDragTask} isOverlay /> : null}
+            {activeDragTask ? <SortableTaskCard task={activeDragTask} isOverlay /> : null}
           </DragOverlay>
         </DndContext>
       </div>

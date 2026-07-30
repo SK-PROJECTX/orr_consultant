@@ -4,6 +4,23 @@ import { vaultApi } from '@/lib/vault-api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://orr-backend-105825824472.asia-southeast2.run.app';
 
+// 401 Interceptor Wrapper
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('refresh_token');
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signin')) {
+        window.location.href = '/signin?expired=true';
+      }
+    }
+  }
+  return response;
+}
+
 export type OpportunityStage = 
   | 'INVITED'
   | 'VIEWED'
@@ -198,10 +215,10 @@ interface ConsultantState {
   is2faPending: boolean;
   loginError: string | null;
   loginConsultant: (email: string, password: string) => Promise<boolean>;
-  registerConsultant: (email: string, password: string) => Promise<{success: boolean, message?: string}>;
+  registerConsultant: (email: string, password: string) => Promise<{success: boolean, message?: string, consultantNumber?: string}>;
   verifyConsultant: (email: string, consultantNumber: string) => Promise<{success: boolean, message?: string}>;
   googleLogin: (credential: string) => Promise<boolean>;
-  verify2fa: (code: string) => boolean;
+  verify2fa: (code: string) => Promise<boolean>;
   logoutConsultant: () => void;
   forgotPassword: (email: string) => Promise<{success: boolean, message?: string}>;
   resetPassword: (uid: string, token: string, new_password: string) => Promise<{success: boolean, message?: string}>;
@@ -433,14 +450,42 @@ export const useConsultantStore = create<ConsultantState>()(
       setLanguage: (lang) => set({ language: lang }),
       
       registerConsultant: async (email: string, password: string) => {
-        return { success: true };
+        try {
+          const res = await apiFetch(`${API_BASE}/api/v1/consultants/auth/register/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            return { success: true, message: data.message, consultantNumber: data.data?.consultant_number };
+          } else {
+            return { success: false, message: data.message || "Registration failed" };
+          }
+        } catch (e: any) {
+          return { success: false, message: e.message || "Network error" };
+        }
       },
       verifyConsultant: async (email: string, consultantNumber: string) => {
-        return { success: true };
+        try {
+          const res = await apiFetch(`${API_BASE}/api/v1/consultants/auth/verify/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, consultant_number: consultantNumber })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            return { success: true, message: data.message };
+          } else {
+            return { success: false, message: data.message || "Verification failed" };
+          }
+        } catch (e: any) {
+          return { success: false, message: e.message || "Network error" };
+        }
       },
       forgotPassword: async (email: string) => {
         try {
-          const res = await fetch(`${API_BASE}/api/auth/forget-password/`, {
+          const res = await apiFetch(`${API_BASE}/api/auth/forget-password/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, portal: "consultant" })
@@ -457,7 +502,7 @@ export const useConsultantStore = create<ConsultantState>()(
       },
       resetPassword: async (uid: string, token: string, new_password: string) => {
         try {
-          const res = await fetch(`${API_BASE}/api/auth/verify-reset-password/${uid}/${token}/`, {
+          const res = await apiFetch(`${API_BASE}/api/auth/verify-reset-password/${uid}/${token}/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ uid, token, new_password })
@@ -480,7 +525,7 @@ export const useConsultantStore = create<ConsultantState>()(
   googleLogin: async (credential) => {
     set({ loginError: null });
     try {
-      const response = await fetch(`${API_BASE}/api/auth/google-login/`, {
+      const response = await apiFetch(`${API_BASE}/api/auth/google-login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential, portal: "consultant" })
@@ -534,7 +579,7 @@ export const useConsultantStore = create<ConsultantState>()(
   loginConsultant: async (email, password) => {
     set({ loginError: null });
     try {
-      const response = await fetch(`${API_BASE}/login/`, {
+      const response = await apiFetch(`${API_BASE}/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, portal: 'consultant' })
@@ -554,6 +599,19 @@ export const useConsultantStore = create<ConsultantState>()(
           if (status === 'REJECTED') frontendStatus = 'Rejected';
           if (status === 'SUSPENDED') frontendStatus = 'Suspended';
           if (status === 'ARCHIVED') frontendStatus = 'Archived';
+
+          if (data.data.mfa_required) {
+            set({
+              is2faPending: true,
+              loginError: null
+            });
+            // Temporarily store token for 2FA validation
+            if (data.data.access) {
+              sessionStorage.setItem("temp_access_token", data.data.access);
+              sessionStorage.setItem("temp_user_data", JSON.stringify(data.data.user));
+            }
+            return true;
+          }
 
           set({
             isAuthenticated: true,
@@ -589,22 +647,65 @@ export const useConsultantStore = create<ConsultantState>()(
       return false;
     }
   },
-  verify2fa: (code) => {
-    // 2FA code is hardcoded as '123456' or '888888' for easy user testing
-    if (code === '123456' || code === '888888') {
-      set({ 
-        isAuthenticated: true, 
-        is2faPending: false,
-        loginError: null 
+  verify2fa: async (code) => {
+    try {
+      const tempToken = sessionStorage.getItem("temp_access_token");
+      if (!tempToken) {
+        set({ loginError: 'Session expired. Please sign in again.' });
+        return false;
+      }
+      const response = await fetch(`${API_BASE}/api/auth/mfa/verify/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${tempToken}`
+        },
+        body: JSON.stringify({ code })
       });
-      get().addNotification(
-        'Specialist Authorization Granted',
-        'Secure session established. Two-factor clearance approved.',
-        'SYSTEM'
-      );
-      return true;
-    } else {
-      set({ loginError: 'Security validation code incorrect. Please verify and try again.' });
+      const data = await response.json();
+
+      if (response.ok) {
+        const userDataStr = sessionStorage.getItem("temp_user_data");
+        const user = userDataStr ? JSON.parse(userDataStr) : null;
+        const status = user?.status || 'APPROVED';
+        const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
+        
+        let frontendStatus: ProfileData['profileStatus'] = 'Draft';
+        if (status === 'PENDING_REVIEW') frontendStatus = 'Pending Review';
+        if (status === 'APPROVED') frontendStatus = 'Approved';
+        
+        set({ 
+          isAuthenticated: true, 
+          is2faPending: false,
+          onboardingCompleted: onboardingDone,
+          loginError: null,
+          profileData: {
+            ...get().profileData,
+            profileStatus: frontendStatus,
+          }
+        });
+        
+        if (user?.consultant_number) {
+          sessionStorage.setItem("consultant_number", user.consultant_number);
+          get().fetchProfile();
+        }
+        
+        localStorage.setItem("access_token", data.access || tempToken);
+        sessionStorage.removeItem("temp_access_token");
+        sessionStorage.removeItem("temp_user_data");
+
+        get().addNotification(
+          'Specialist Authorization Granted',
+          'Secure session established. Two-factor clearance approved.',
+          'SYSTEM'
+        );
+        return true;
+      } else {
+        set({ loginError: data.error || 'Security validation code incorrect. Please verify and try again.' });
+        return false;
+      }
+    } catch (e) {
+      set({ loginError: 'Network error communicating with authentication server.' });
       return false;
     }
   },
@@ -615,7 +716,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       
@@ -646,7 +747,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchJobs: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/pm/v1/consultant/assignments/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/consultant/assignments/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -676,7 +777,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchTasks: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/pm/v1/consultant/tasks/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/consultant/tasks/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -691,7 +792,7 @@ export const useConsultantStore = create<ConsultantState>()(
             description: t.description,
             dueDate: t.due_date || new Date().toISOString(),
             priority: t.priority?.toUpperCase() || 'MEDIUM',
-            status: t.status === 'completed' ? 'COMPLETED' : t.status === 'in_review' ? 'UNDER_REVIEW' : t.status === 'in_progress' ? 'IN_PROGRESS' : 'ASSIGNED'
+            status: t.status === 'completed' ? 'COMPLETED' : (t.status === 'submitted_for_review' || t.status === 'revision_required') ? 'UNDER_REVIEW' : t.status === 'in_progress' ? 'IN_PROGRESS' : t.status === 'blocked' ? 'BLOCKED' : 'ASSIGNED'
           }));
           set({ tasks: mappedTasks });
         }
@@ -700,14 +801,65 @@ export const useConsultantStore = create<ConsultantState>()(
       console.error('Failed to fetch tasks:', err);
     }
   },
-  fetchInvoices: () => {},
+  fetchInvoices: async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const cNum = sessionStorage.getItem('consultant_number');
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/invoices/?consultant__consultant_number=${cNum}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (!response.ok) throw new Error('Failed to fetch invoices');
+      const invoicesRaw = await response.json();
+      const invoicesData = invoicesRaw.data || invoicesRaw.results || (Array.isArray(invoicesRaw) ? invoicesRaw : []);
+      
+      const mappedInvoices = invoicesData.map((inv: any) => ({
+        id: inv.id.toString(),
+        invoiceNumber: inv.invoice_number,
+        billingPeriod: inv.billing_period,
+        hours: parseFloat(inv.hours),
+        rate: parseFloat(inv.rate),
+        amount: parseFloat(inv.amount),
+        taskTitle: inv.task_title,
+        submittedAt: inv.submitted_at,
+        fileName: inv.file_name,
+        status: inv.status,
+        reviewerNotes: inv.reviewer_notes
+      }));
+      
+      // Calculate balances based on status
+      let pending = 0;
+      let available = 0;
+      let totalEarned = 0;
+      
+      mappedInvoices.forEach((inv: Invoice) => {
+        if (inv.status === 'PAID') {
+          available += inv.amount;
+          totalEarned += inv.amount;
+        } else {
+          pending += inv.amount;
+        }
+      });
+      
+      set(state => ({
+        invoices: mappedInvoices,
+        walletBalance: {
+          ...state.walletBalance,
+          available,
+          pending,
+          totalEarned
+        }
+      }));
+    } catch (e) {
+      console.error('Failed to fetch consultant invoices:', e);
+    }
+  },
     fetchDocuments: async () => {
     try {
       const cNum = sessionStorage.getItem('consultant_number');
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
         if (res.ok) {
@@ -749,7 +901,7 @@ export const useConsultantStore = create<ConsultantState>()(
         if (since) params.push(`since=${since}`);
         if (params.length > 0) url += `?${params.join('&')}`;
         
-        const res = await fetch(url, {
+        const res = await apiFetch(url, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
       if (res.ok) {
@@ -785,7 +937,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       const cNum = sessionStorage.getItem('consultant_number');
       if (!token || !cNum) return;
-      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/notifications/`, {
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/notifications/`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
@@ -814,7 +966,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchOpportunities: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/pm/v1/opportunities/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/opportunities/`, {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
       if (response.ok) {
@@ -852,7 +1004,7 @@ export const useConsultantStore = create<ConsultantState>()(
   respondToOpportunity: async (id: string, payload: any) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/pm/v1/opportunities/${id}/respond/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/opportunities/${id}/respond/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -947,7 +1099,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/profile/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -992,7 +1144,7 @@ export const useConsultantStore = create<ConsultantState>()(
       };
 
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/api/v1/consultants/${consultantId}/onboarding/`, {
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/${consultantId}/onboarding/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1144,49 +1296,51 @@ export const useConsultantStore = create<ConsultantState>()(
     totalEarned: 0
   },
   invoices: INITIAL_INVOICES,
-  submitInvoice: (invoiceData) => {
-    const newInvoice: Invoice = {
-      ...invoiceData,
-      id: `INV-${Date.now()}`,
-      status: 'SUBMITTED',
-      submittedAt: new Date().toISOString()
-    };
-
-    set(state => ({
-      invoices: [newInvoice, ...state.invoices],
-      walletBalance: {
-        ...state.walletBalance,
-        pending: state.walletBalance.pending + newInvoice.amount
-      }
-    }));
-
-    get().addNotification(
-      'Invoice Submitted Successfully',
-      `Invoice for ${newInvoice.taskTitle} (${newInvoice.invoiceNumber}) has been locked in for PM review.`,
-      'PAYMENT'
-    );
-
-    // Simulate review progress
-    setTimeout(() => {
-      set(state => {
-        const updatedInvoices = state.invoices.map(inv => {
-          if (inv.id === newInvoice.id) {
-            return {
-              ...inv,
-              status: 'UNDER_REVIEW' as const,
-              reviewerNotes: 'Invoice under audit by PM Marcus Vance. Soil/code outputs verified.'
-            };
-          }
-          return inv;
-        });
-        return { invoices: updatedInvoices };
+  submitInvoice: async (invoiceData) => {
+    try {
+      const payload = {
+        invoice_number: invoiceData.invoiceNumber,
+        billing_period: invoiceData.billingPeriod,
+        hours: invoiceData.hours,
+        rate: invoiceData.rate,
+        amount: invoiceData.amount,
+        task_title: invoiceData.taskTitle,
+        file_name: invoiceData.fileName,
+        status: 'SUBMITTED',
+      };
+      
+      const token = localStorage.getItem('access_token');
+      const response = await apiFetch(`${API_BASE}/api/v1/consultants/invoices/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Invoice submission failed:', response.status, errorText);
+        throw new Error(`Failed to submit invoice: ${response.status} ${errorText}`);
+      }
+      
       get().addNotification(
-        'Invoice Under PM Audit',
-        `Invoice ${newInvoice.invoiceNumber} is now being audited by the Project Manager.`,
+        'Invoice Submitted Successfully',
+        `Invoice for ${invoiceData.taskTitle} (${invoiceData.invoiceNumber}) has been submitted for PM review.`,
         'PAYMENT'
       );
-    }, 15000);
+      
+      // Re-fetch invoices to get the real created record
+      get().fetchInvoices();
+    } catch (e) {
+      console.error('Failed to submit invoice:', e);
+      get().addNotification(
+        'Submission Failed',
+        'Could not submit the invoice. Please try again later.',
+        'SYSTEM'
+      );
+    }
   },
   withdrawFunds: (amount, method) => {
     set(state => ({
@@ -1221,7 +1375,7 @@ export const useConsultantStore = create<ConsultantState>()(
       else if (status === 'COMPLETED') backendStatus = 'completed';
       else if (status === 'BLOCKED') backendStatus = 'blocked';
 
-      const response = await fetch(`${API_BASE}/pm/v1/tasks/${targetId}/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1266,7 +1420,7 @@ export const useConsultantStore = create<ConsultantState>()(
         formData.append('deliverable_file', file);
       }
 
-      const response = await fetch(`${API_BASE}/pm/v1/tasks/${targetId}/submit-review/`, {
+      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/submit-review/`, {
         method: 'POST',
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -1344,7 +1498,7 @@ export const useConsultantStore = create<ConsultantState>()(
       if (!cNum || !token) return;
       
       const content = type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '';
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1366,7 +1520,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1402,7 +1556,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -1427,7 +1581,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/directory/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/directory/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1446,7 +1600,7 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1492,7 +1646,7 @@ export const useConsultantStore = create<ConsultantState>()(
       }
       const endDate = new Date(startDate.getTime() + 60*60*1000); // add 1 hr
 
-      const res = await fetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
+      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/meetings/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
