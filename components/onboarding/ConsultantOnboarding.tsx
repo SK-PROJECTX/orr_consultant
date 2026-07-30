@@ -1762,6 +1762,7 @@ export default function ConsultantOnboarding() {
                                   : 'bg-slate-900/40 border-white/10 text-slate-300 hover:border-white/20 hover:bg-slate-900/60'
                                 }
                               `}
+                              onClick={() => toggleCapability(tool)}
                             >
                               <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors
                                 ${capabilities.includes(tool) ? 'border-primary bg-primary text-slate-950' : 'border-slate-600'}

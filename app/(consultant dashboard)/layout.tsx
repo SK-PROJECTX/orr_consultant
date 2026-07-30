@@ -128,10 +128,11 @@ export default function DashboardLayout({
   // Sheet 2 & 3 Limited Access States
   // Pending Review & Needs Clarification: Consultant can view profile, edit certain profile fields, and see pending status. 
   // Rejected & Suspended & Archived: No operational portal access.
-  const isPendingReview = profileStatus === 'Pending Review' || profileStatus === 'Needs Clarification';
+  const statusStr = profileStatus?.toUpperCase() || '';
+  const isPendingReview = statusStr === 'PENDING' || statusStr === 'PENDING REVIEW' || statusStr === 'PENDING_REVIEW' || statusStr === 'NEEDS CLARIFICATION' || statusStr === 'NEEDS_CLARIFICATION';
   const isRestrictedPath = isPendingReview && pathname !== '/profile';
 
-  const isBlocked = ['Rejected', 'Suspended', 'Archived'].includes(profileStatus);
+  const isBlocked = ['REJECTED', 'SUSPENDED', 'ARCHIVED'].includes(statusStr);
 
   if (isBlocked) {
     return (
