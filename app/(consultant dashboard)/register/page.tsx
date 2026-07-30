@@ -45,7 +45,8 @@ export default function RegisterPage() {
       const response = await registerConsultant(formData.email, formData.password);
 
       if (response.success) {
-        alert("Consultant Account Registered successfully! Redirecting to verification.");
+        const cNum = response.consultantNumber || "Unknown";
+        alert(`Consultant Account Registered successfully!\n\nYOUR CONSULTANT NUMBER IS: ${cNum}\n\nPlease copy this number! Redirecting to verification...`);
         // Store email temporarily for verification step
         sessionStorage.setItem("verify_email", formData.email);
         router.push("/verify");
