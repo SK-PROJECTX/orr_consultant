@@ -481,6 +481,14 @@ const MenuBar = ({ editor }: { editor: any }) => {
 export default function DocsEditor({ content, onChange, title, onTitleChange }: DocsEditorProps) {
    const [pages, setPages] = useState([1]);
 
+   const formatDocContent = (raw?: string) => {
+      if (!raw) return '<p>Start typing...</p>';
+      if (raw.startsWith('data:')) {
+         return `<div style="padding: 24px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px; text-align: center; font-family: sans-serif;"><h3 style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">Uploaded Document Asset</h3><p style="color: #475569; font-size: 13px;">This is a binary document file attached to your vault. Click Preview or Download to view the original asset.</p></div>`;
+      }
+      return raw;
+   };
+
    const editor = useEditor({
       extensions: [
          StarterKit,
@@ -506,7 +514,7 @@ export default function DocsEditor({ content, onChange, title, onTitleChange }: 
          LineHeight,
          FontFamily
       ],
-      content: content || '<p>Start typing...</p>',
+      content: formatDocContent(content),
       onUpdate: ({ editor }: any) => {
          onChange(editor.getHTML());
       },
@@ -516,6 +524,12 @@ export default function DocsEditor({ content, onChange, title, onTitleChange }: 
          },
       },
    });
+
+   useEffect(() => {
+      if (editor && content && content !== editor.getHTML() && !content.startsWith('data:')) {
+         editor.commands.setContent(formatDocContent(content));
+      }
+   }, [content, editor]);
 
    useEffect(() => {
       if (!editor) return;

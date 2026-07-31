@@ -154,6 +154,9 @@ export default function VaultTab() {
   const handleItemClick = (doc: VaultDocument) => {
     if (doc.type === 'folder') {
       setCurrentFolderId(doc.id);
+    } else if (doc.type === 'file') {
+      setSelectedDocId(doc.id);
+      setView('file_preview');
     } else {
       setSelectedDocId(doc.id);
       setView('studio');
