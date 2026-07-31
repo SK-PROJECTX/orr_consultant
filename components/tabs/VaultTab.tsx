@@ -154,12 +154,9 @@ export default function VaultTab() {
   const handleItemClick = (doc: VaultDocument) => {
     if (doc.type === 'folder') {
       setCurrentFolderId(doc.id);
-    } else if (doc.type === 'file') {
-      setSelectedDocId(doc.id);
-      setView('file_preview');
     } else {
       setSelectedDocId(doc.id);
-      setView('detail');
+      setView('studio');
     }
   };
 
@@ -173,7 +170,7 @@ export default function VaultTab() {
       case 'slide':
         return <SlidesEditor content={currentDoc.content} onChange={(content) => updateDocumentContent(currentDoc.id, currentDoc.title, content)} title={currentDoc.title} onTitleChange={(title) => updateDocumentContent(currentDoc.id, title, currentDoc.content)} />;
       default:
-        return null;
+        return <DocsEditor content={currentDoc.content} onChange={(content) => updateDocumentContent(currentDoc.id, currentDoc.title, content)} title={currentDoc.title} onTitleChange={(title) => updateDocumentContent(currentDoc.id, title, currentDoc.content)} />;
     }
   };
 
@@ -421,6 +418,12 @@ export default function VaultTab() {
             <h1 className="text-2xl font-black text-white">{currentDoc.title}</h1>
             <p className="text-slate-400 text-xs font-mono">{currentDoc.fileMeta?.mimeType} • {(currentDoc.fileMeta?.size! / 1024 / 1024).toFixed(2)} MB</p>
           </div>
+          <button 
+            onClick={() => setView('studio')}
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-lemon transition-all shadow-lg shadow-primary/20"
+          >
+            <ExternalLink size={16} /> Open in Studio
+          </button>
         </div>
 
         <div className="flex-1 bg-slate-900/60 border border-white/10 rounded-3xl flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
