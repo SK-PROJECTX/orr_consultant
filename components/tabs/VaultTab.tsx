@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, Search, FileText, Grid3X3, Presentation, 
   Settings2, History, Zap, ExternalLink, ChevronLeft, 
-  Clock, Folder, Upload, FolderPlus, FilePlus, ChevronRight, Image as ImageIcon, Download, MoreVertical, X, Plus
+  Clock, Folder, Upload, FolderPlus, FilePlus, ChevronRight, Image as ImageIcon, Download, MoreVertical, X, Plus, ShieldCheck
 } from 'lucide-react';
 import WorkspaceShell from '../vault/layout/WorkspaceShell';
 import DocsEditor from '../vault/editors/DocsEditor';
@@ -111,7 +111,8 @@ export default function VaultTab() {
             name: file.name, 
             type: file.type, 
             size: file.size, 
-            content: reader.result as string 
+            content: reader.result as string,
+            file: file 
           }, currentFolderId);
           setToastMessage({ text: `Successfully uploaded "${file.name}" to Vault`, type: 'success' });
           setTimeout(() => setToastMessage(null), 4000);
@@ -152,9 +153,10 @@ export default function VaultTab() {
   };
 
   const handleItemClick = (doc: VaultDocument) => {
+    const isFile = doc.type === 'file' || (doc.content && typeof doc.content === 'string' && doc.content.startsWith('data:'));
     if (doc.type === 'folder') {
       setCurrentFolderId(doc.id);
-    } else if (doc.type === 'file') {
+    } else if (isFile) {
       setSelectedDocId(doc.id);
       setView('file_preview');
     } else {
@@ -165,7 +167,9 @@ export default function VaultTab() {
 
   const renderEditor = () => {
     if (!currentDoc) return null;
-    switch (currentDoc.type) {
+    const isExcel = currentDoc.title?.toLowerCase().endsWith('.xlsx') || currentDoc.title?.toLowerCase().endsWith('.xls') || currentDoc.fileMeta?.mimeType?.includes('spreadsheet');
+    const type = isExcel ? 'sheet' : currentDoc.type;
+    switch (type) {
       case 'doc':
         return <DocsEditor content={currentDoc.content} onChange={(content) => updateDocumentContent(currentDoc.id, currentDoc.title, content)} title={currentDoc.title} onTitleChange={(title) => updateDocumentContent(currentDoc.id, title, currentDoc.content)} />;
       case 'sheet':
@@ -432,49 +436,56 @@ export default function VaultTab() {
         <div className="flex-1 bg-slate-900/60 border border-white/10 rounded-3xl flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
            
-           {currentDoc.content ? (
-              <div className="w-full max-w-3xl bg-black/40 rounded-2xl border border-white/10 p-2 mb-8 shadow-2xl relative flex flex-col items-center justify-center">
-                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full font-mono border border-white/10 z-10">
-                  PREVIEW MODE
-                </div>
-                
-                {currentDoc.content.startsWith('data:application/pdf') ? (
-                  <iframe 
-                    src={currentDoc.content} 
-                    className="w-full h-[450px] rounded-xl border border-white/10 bg-slate-950/80" 
-                  />
-                ) : (
-                  <img 
-                    src={currentDoc.content} 
-                    alt={currentDoc.title} 
-                    className="w-full max-h-[450px] object-contain bg-slate-950/80 rounded-xl"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector('.doc-fallback')) {
-                        const fallbackDiv = document.createElement('div');
-                        fallbackDiv.className = 'doc-fallback py-12 flex flex-col items-center justify-center text-center';
-                        fallbackDiv.innerHTML = `
-                          <div class="p-4 bg-primary/10 rounded-2xl border border-primary/20 mb-3">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                          </div>
-                          <p class="text-white font-bold text-base mb-1">${currentDoc.title}</p>
-                          <p class="text-slate-400 text-xs font-mono">${currentDoc.fileMeta?.mimeType || 'Document Archive'}</p>
-                        `;
-                        parent.appendChild(fallbackDiv);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            ) : (
-              <>
-                <ImageIcon size={64} className="text-slate-600 mb-6" />
-                <h3 className="text-xl font-bold text-white mb-2">{t('vault.drive.preview')}</h3>
-                <p className="text-slate-400 text-sm max-w-md mb-8">{t('vault.drive.unsupportedPreview')}</p>
-              </>
-            )}
+           {(() => {
+             const isPdf = currentDoc.content?.startsWith('data:application/pdf') || currentDoc.fileMeta?.mimeType?.includes('pdf') || currentDoc.title?.toLowerCase().endsWith('.pdf');
+             const isImage = currentDoc.content?.startsWith('data:image/') || currentDoc.fileMeta?.mimeType?.startsWith('image/');
+
+             if (isPdf && currentDoc.content?.startsWith('data:')) {
+               return (
+                 <div className="w-full max-w-4xl bg-black/40 rounded-2xl border border-white/10 p-2 mb-8 shadow-2xl relative flex flex-col items-center justify-center">
+                   <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full font-mono border border-white/10 z-10">
+                     PDF PREVIEW MODE
+                   </div>
+                   <iframe 
+                     src={currentDoc.content} 
+                     title={currentDoc.title}
+                     className="w-full h-[500px] rounded-xl border border-white/10 bg-slate-950/80" 
+                   />
+                 </div>
+               );
+             }
+
+             if (isImage && currentDoc.content) {
+               return (
+                 <div className="w-full max-w-3xl bg-black/40 rounded-2xl border border-white/10 p-2 mb-8 shadow-2xl relative flex flex-col items-center justify-center">
+                   <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full font-mono border border-white/10 z-10">
+                     IMAGE PREVIEW
+                   </div>
+                   <img 
+                     src={currentDoc.content} 
+                     alt={currentDoc.title} 
+                     className="w-full max-h-[480px] object-contain bg-slate-950/80 rounded-xl"
+                   />
+                 </div>
+               );
+             }
+
+             return (
+               <div className="w-full max-w-md bg-slate-900/90 border border-white/10 rounded-3xl p-8 mb-8 shadow-2xl flex flex-col items-center justify-center text-center">
+                 <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-4 shadow-lg shadow-primary/5">
+                   <FileText size={32} />
+                 </div>
+                 <h3 className="text-lg font-bold text-white mb-1.5 break-all max-w-xs">{currentDoc.title}</h3>
+                 <p className="text-slate-400 text-[11px] font-mono mb-4">{currentDoc.fileMeta?.mimeType || 'Binary Document Asset'}</p>
+                 <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-4">
+                   <ShieldCheck size={12} /> Verified Vault Asset
+                 </div>
+                 <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
+                   Binary asset protected in ORR Document Vault. Click download below to view original file.
+                 </p>
+               </div>
+             );
+           })()}
             
             <button 
               onClick={() => {

@@ -165,7 +165,7 @@ export interface VaultDocument {
   title: string;
   category: 'LEGAL' | 'FINANCIAL' | 'OPERATIONAL' | 'TECHNICAL';
   content: string;
-  type: 'doc' | 'sheet' | 'slide' | 'folder' | 'file';
+  type: string;
   jobId?: string;
   status: 'LOCKED' | 'UNLOCKED';
   lastModified: string;
@@ -175,6 +175,9 @@ export interface VaultDocument {
     size: number;
     mimeType: string;
   };
+  link?: string;
+  webViewLink?: string;
+  documentSource?: string;
 }
 
 export interface Message {
@@ -907,18 +910,34 @@ export const useConsultantStore = create<ConsultantState>()(
         else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
         else if (json && Array.isArray(json.results)) arr = json.results;
         
-        const mapped = arr.map((d: any) => ({
-          id: String(d.id),
-          title: d.title,
-          category: d.category || 'OPERATIONAL',
-          content: d.content || '',
-          type: d.doc_type || 'doc',
-          status: d.status || 'UNLOCKED',
-          lastModified: d.created_at || new Date().toISOString(),
-          parentId: d.parent_id ? String(d.parent_id) : null,
-          trackChanges: [],
-          fileMeta: d.doc_type === 'file' ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined
-        }));
+        const mapped = arr.map((d: any) => {
+          let rawType = d.doc_type || d.document_type || d.type || '';
+          if (!rawType || rawType === 'file') {
+            const nameSource = d.title || d.link || d.file || '';
+            const match = nameSource.match(/\.([a-z0-9]+)(\?.*)?$/i);
+            if (match) rawType = match[1];
+          }
+          rawType = (rawType || 'doc').toLowerCase().replace(/^\./, '');
+          
+          const link = d.link || d.webViewLink || d.document_url || d.file || d.document || '';
+          const finalLink = link ? (link.startsWith('http') ? link : `${API_BASE}${link}`) : '';
+
+          return {
+            id: String(d.id),
+            title: d.title,
+            category: d.category || 'OPERATIONAL',
+            content: d.content || '',
+            type: rawType,
+            status: d.status || 'UNLOCKED',
+            lastModified: d.created_at || new Date().toISOString(),
+            parentId: d.parent_id ? String(d.parent_id) : null,
+            trackChanges: [],
+            fileMeta: (d.doc_type === 'file' || (d.content && typeof d.content === 'string' && d.content.startsWith('data:'))) ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined,
+            link: finalLink,
+            webViewLink: finalLink,
+            documentSource: d.document_source || d.documentSource || ''
+          };
+        });
         set({ documents: mapped });
       }
     } catch(e) { console.error('fetchDocs error', e); }
@@ -1576,18 +1595,23 @@ export const useConsultantStore = create<ConsultantState>()(
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
+      const formData = new FormData();
+      if (fileObj.file) {
+          formData.append('file', fileObj.file);
+      }
+      formData.append('title', fileObj.name);
+      formData.append('doc_type', 'file');
+      formData.append('category', 'OPERATIONAL');
+      formData.append('mime_type', fileObj.type || '');
+      formData.append('file_size', String(fileObj.size || 0));
+      if (parentId) {
+          formData.append('parent_id', parentId);
+      }
+      
       const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          title: fileObj.name,
-          doc_type: 'file',
-          category: 'OPERATIONAL',
-          content: (fileObj as any).content || '', // Base64 content from file read
-          parent_id: parentId || null,
-          file_size: fileObj.size,
-          mime_type: fileObj.type
-        })
+        headers: { 'Authorization': `Bearer ${token}` }, // Removed Content-Type so browser sets it automatically with boundary for FormData
+        body: formData
       });
       if (res.ok) {
         get().fetchDocuments();
