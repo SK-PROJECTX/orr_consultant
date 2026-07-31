@@ -38,10 +38,15 @@ export default function VaultTab() {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   React.useEffect(() => {
     setIsMounted(true);
-    fetchDocuments();
+    let isCurrent = true;
+    fetchDocuments().finally(() => {
+      if (isCurrent) setIsLoadingData(false);
+    });
+    return () => { isCurrent = false; };
   }, [fetchDocuments]);
 
   React.useEffect(() => {
@@ -56,7 +61,7 @@ export default function VaultTab() {
     return () => document.removeEventListener('editor-action', handleGlobalEvent);
   }, [view]);
 
-  if (!isMounted) {
+  if (!isMounted || isLoadingData) {
     return <LoadingSpinner label="Loading Vault..." sublabel="Securing encrypted document workspace" />;
   }
 

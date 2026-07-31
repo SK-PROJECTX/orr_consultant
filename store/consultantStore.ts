@@ -941,21 +941,24 @@ export const useConsultantStore = create<ConsultantState>()(
         else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
         else if (json && Array.isArray(json.results)) arr = json.results;
         
-        if (arr.length > 0) {
-          const mapped = arr.map((d: any) => ({
-            id: String(d.id),
-            title: d.title,
-            category: d.category || 'OPERATIONAL',
-            content: d.content || '',
-            type: d.doc_type || 'doc',
-            status: d.status || 'UNLOCKED',
-            lastModified: d.created_at || new Date().toISOString(),
-            parentId: d.parent_id ? String(d.parent_id) : null,
-            trackChanges: [],
-            fileMeta: d.doc_type === 'file' ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined
-          }));
-          set({ documents: mapped });
-        }
+        const mapped = arr.map((d: any) => ({
+          id: String(d.id),
+          title: d.title,
+          category: d.category || 'OPERATIONAL',
+          content: d.content || '',
+          type: d.doc_type || 'doc',
+          status: d.status || 'UNLOCKED',
+          lastModified: d.created_at || new Date().toISOString(),
+          parentId: d.parent_id ? String(d.parent_id) : null,
+          trackChanges: [],
+          fileMeta: d.doc_type === 'file' ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined
+        }));
+        set(state => {
+          const backendIds = new Set(mapped.map((m: any) => m.id));
+          const currentDocs = state.documents && state.documents.length > 0 ? state.documents : INITIAL_DOCUMENTS;
+          const mergedSeeds = currentDocs.filter(d => !backendIds.has(d.id));
+          return { documents: [...mapped, ...mergedSeeds] };
+        });
       }
     } catch(e) { console.error('fetchDocs error', e); }
   },
