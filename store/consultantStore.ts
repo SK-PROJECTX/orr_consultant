@@ -332,7 +332,7 @@ interface ConsultantState {
   addDocumentTrackChange: (docId: string, type: 'INSERTION' | 'DELETION', text: string, line: number) => void;
   resetDocumentChanges: (docId: string) => void;
   updateDocumentContent: (docId: string, newTitle: string, newContent: string) => void;
-  createFolder: (title: string, parentId: string | null) => void;
+  createFolder: (title: string, parentId: string | null) => Promise<void>;
   createDocument: (type: 'doc' | 'sheet' | 'slide', title: string, parentId: string | null) => Promise<void>;
   uploadFileToVault: (fileObj: any, parentId: string | null) => Promise<void>;
 
@@ -1510,13 +1510,34 @@ export const useConsultantStore = create<ConsultantState>()(
       )
     }));
   },
-  createFolder: (title, parentId) => {
+  createFolder: async (title, parentId) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token');
+      if (cNum && token) {
+        const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title,
+            doc_type: 'folder',
+            category: 'OPERATIONAL',
+            content: '',
+            parent_id: parentId || null
+          })
+        });
+        if (res.ok) {
+          await get().fetchDocuments();
+          return;
+        }
+      }
+    } catch(e) { console.error('createFolder error', e); }
     set(state => ({
       documents: [
         {
           id: `fld-${Date.now()}`,
           title,
-          category: 'OPERATIONAL', // Defaulting
+          category: 'OPERATIONAL',
           content: '',
           type: 'folder',
           status: 'UNLOCKED',

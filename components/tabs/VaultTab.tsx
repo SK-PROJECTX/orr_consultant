@@ -32,6 +32,9 @@ export default function VaultTab() {
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [creationModal, setCreationModal] = useState<'folder' | 'doc' | 'sheet' | 'slide' | null>(null);
   const [newItemName, setNewItemName] = useState('');
+  const [isSubmittingItem, setIsSubmittingItem] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; isUploading: boolean } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -93,14 +96,23 @@ export default function VaultTab() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadProgress({ name: file.name, isUploading: true });
       const reader = new FileReader();
-      reader.onload = () => {
-        uploadFileToVault({ 
-          name: file.name, 
-          type: file.type, 
-          size: file.size, 
-          content: reader.result as string 
-        }, currentFolderId);
+      reader.onload = async () => {
+        try {
+          await uploadFileToVault({ 
+            name: file.name, 
+            type: file.type, 
+            size: file.size, 
+            content: reader.result as string 
+          }, currentFolderId);
+          setToastMessage({ text: `Successfully uploaded "${file.name}" to Vault`, type: 'success' });
+          setTimeout(() => setToastMessage(null), 4000);
+        } catch (err) {
+          setToastMessage({ text: `Failed to upload "${file.name}". Please try again.`, type: 'error' });
+        } finally {
+          setUploadProgress(null);
+        }
       };
       reader.readAsDataURL(file);
       setIsNewMenuOpen(false);
@@ -108,19 +120,28 @@ export default function VaultTab() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim() || !creationModal) return;
 
-    if (creationModal === 'folder') {
-      createFolder(newItemName, currentFolderId);
-    } else {
-      createDocument(creationModal, newItemName, currentFolderId);
+    setIsSubmittingItem(true);
+    try {
+      if (creationModal === 'folder') {
+        await createFolder(newItemName, currentFolderId);
+        setToastMessage({ text: `Folder "${newItemName}" created successfully!`, type: 'success' });
+      } else {
+        await createDocument(creationModal, newItemName, currentFolderId);
+        setToastMessage({ text: `Document "${newItemName}" created successfully!`, type: 'success' });
+      }
+      setTimeout(() => setToastMessage(null), 4000);
+      setCreationModal(null);
+      setNewItemName('');
+      setIsNewMenuOpen(false);
+    } catch (err) {
+      setToastMessage({ text: `Failed to create item. Please try again.`, type: 'error' });
+    } finally {
+      setIsSubmittingItem(false);
     }
-    
-    setCreationModal(null);
-    setNewItemName('');
-    setIsNewMenuOpen(false);
   };
 
   const handleItemClick = (doc: VaultDocument) => {
@@ -242,6 +263,32 @@ export default function VaultTab() {
           </div>
         </div>
 
+        {/* Upload & Syncing Progress Banner */}
+        {uploadProgress?.isUploading && (
+          <div className="mb-4 p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-primary">Uploading & Encrypting File...</p>
+                <p className="text-[11px] text-slate-300 font-mono">{uploadProgress.name}</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-primary font-black">Syncing to Vault</span>
+          </div>
+        )}
+
+        {/* Action Toast Feedback */}
+        {toastMessage && (
+          <div className={`mb-4 p-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-between animate-in fade-in ${
+            toastMessage.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          }`}>
+            <span>{toastMessage.text}</span>
+            <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-white/10 rounded-md">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Breadcrumb Navigation */}
         {!searchQuery && (
           <div className="flex items-center gap-1 overflow-x-auto py-2 custom-scrollbar flex-shrink-0">
@@ -314,7 +361,7 @@ export default function VaultTab() {
         <AnimatePresence>
           {creationModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCreationModal(null)} />
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isSubmittingItem && setCreationModal(null)} />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -333,13 +380,15 @@ export default function VaultTab() {
                     className="w-full bg-slate-950/60 border border-white/10 focus:border-primary/50 rounded-xl py-3 px-4 text-white focus:outline-none mb-6"
                     autoFocus
                     required
+                    disabled={isSubmittingItem}
                   />
                   <div className="flex justify-end gap-3">
-                    <button type="button" onClick={() => setCreationModal(null)} className="px-5 py-2.5 rounded-xl hover:bg-white/5 font-semibold text-slate-300">
+                    <button type="button" onClick={() => setCreationModal(null)} disabled={isSubmittingItem} className="px-5 py-2.5 rounded-xl hover:bg-white/5 font-semibold text-slate-300 disabled:opacity-50">
                       {t('vault.drive.cancel')}
                     </button>
-                    <button type="submit" className="px-5 py-2.5 rounded-xl bg-primary hover:bg-lemon text-slate-900 font-bold transition-colors">
-                      {t('vault.drive.create')}
+                    <button type="submit" disabled={isSubmittingItem} className="px-5 py-2.5 rounded-xl bg-primary hover:bg-lemon text-slate-900 font-bold transition-colors flex items-center gap-2 disabled:opacity-50">
+                      {isSubmittingItem && <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />}
+                      {isSubmittingItem ? 'Creating...' : t('vault.drive.create')}
                     </button>
                   </div>
                 </form>
