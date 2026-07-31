@@ -381,41 +381,7 @@ const INITIAL_TASKS: Task[] = [];
 
 const INITIAL_INVOICES: Invoice[] = [];
 
-const INITIAL_DOCUMENTS: VaultDocument[] = [
-  {
-    id: 'fld-root-1',
-    title: 'Project Deliverables',
-    category: 'OPERATIONAL',
-    content: '',
-    type: 'folder',
-    status: 'UNLOCKED',
-    lastModified: new Date().toISOString(),
-    trackChanges: [],
-    parentId: null
-  },
-  {
-    id: 'fld-root-2',
-    title: 'Technical Specs & Scopes',
-    category: 'TECHNICAL',
-    content: '',
-    type: 'folder',
-    status: 'UNLOCKED',
-    lastModified: new Date().toISOString(),
-    trackChanges: [],
-    parentId: null
-  },
-  {
-    id: 'doc-seed-1',
-    title: 'Executive Briefing & Scope Summary.docx',
-    category: 'TECHNICAL',
-    content: 'Executive briefing document outlining consulting scope, methodology, and key milestones.',
-    type: 'doc',
-    status: 'UNLOCKED',
-    lastModified: new Date().toISOString(),
-    trackChanges: [],
-    parentId: null
-  }
-];
+const INITIAL_DOCUMENTS: VaultDocument[] = [];
 
 const INITIAL_MESSAGES: Message[] = [];
 
@@ -953,12 +919,7 @@ export const useConsultantStore = create<ConsultantState>()(
           trackChanges: [],
           fileMeta: d.doc_type === 'file' ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined
         }));
-        set(state => {
-          const backendIds = new Set(mapped.map((m: any) => m.id));
-          const currentDocs = state.documents && state.documents.length > 0 ? state.documents : INITIAL_DOCUMENTS;
-          const mergedSeeds = currentDocs.filter(d => !backendIds.has(d.id));
-          return { documents: [...mapped, ...mergedSeeds] };
-        });
+        set({ documents: mapped });
       }
     } catch(e) { console.error('fetchDocs error', e); }
   },
