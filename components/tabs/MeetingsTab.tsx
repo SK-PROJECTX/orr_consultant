@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useConsultantStore } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
   Calendar, 
   Clock, 
@@ -23,11 +26,17 @@ export default function MeetingsTab() {
   const [timeSlot, setTimeSlot] = useState('02:00 PM - 02:30 PM');
   const [topic, setTopic] = useState('');
   const [selectedPm, setSelectedPm] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
 
   React.useEffect(() => {
+    setIsMounted(true);
     fetchMeetings();
     fetchPmDirectory();
   }, [fetchMeetings, fetchPmDirectory]);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Meetings..." sublabel="Fetching schedule and session availability" />;
+  }
 
   const timeSlots = [
     '09:30 AM - 10:00 AM',

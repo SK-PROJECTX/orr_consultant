@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useConsultantStore, VaultDocument } from '@/store/consultantStore';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, Search, FileText, Grid3X3, Presentation, 
@@ -28,12 +29,31 @@ export default function VaultTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<'details' | 'versions' | 'audit' | 'ai'>('details');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  
-  // "New" Dropdown and Modals
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [creationModal, setCreationModal] = useState<'folder' | 'doc' | 'sheet' | 'slide' | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (view !== 'studio') return;
+    const handleGlobalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.action === 'open') {
+        setView('detail');
+      }
+    };
+    document.addEventListener('editor-action', handleGlobalEvent);
+    return () => document.removeEventListener('editor-action', handleGlobalEvent);
+  }, [view]);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Vault..." sublabel="Securing encrypted document workspace" />;
+  }
 
   // TEMPORARY: Bypass lock feature to preview document vault UI
   const unlockedDocs = documents;
@@ -61,18 +81,6 @@ export default function VaultTab() {
   const folderPath = getFolderPath(currentFolderId);
   const currentDoc = unlockedDocs.find(d => d.id === selectedDocId) || null;
   const isVaultLocked = false;
-
-  React.useEffect(() => {
-    if (view !== 'studio') return;
-    const handleGlobalEvent = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.action === 'open') {
-        setView('detail');
-      }
-    };
-    document.addEventListener('editor-action', handleGlobalEvent);
-    return () => document.removeEventListener('editor-action', handleGlobalEvent);
-  }, [view]);
 
   if (isVaultLocked) {
     return (

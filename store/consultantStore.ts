@@ -219,6 +219,7 @@ interface ConsultantState {
   verifyConsultant: (email: string, consultantNumber: string) => Promise<{success: boolean, message?: string}>;
   googleLogin: (credential: string) => Promise<boolean>;
   verify2fa: (code: string) => Promise<boolean>;
+  resend2fa: (emailArg?: string) => Promise<boolean>;
   logoutConsultant: () => void;
   forgotPassword: (email: string) => Promise<{success: boolean, message?: string}>;
   resetPassword: (uid: string, token: string, new_password: string) => Promise<{success: boolean, message?: string}>;
@@ -417,20 +418,7 @@ export const useConsultantStore = create<ConsultantState>()(
     (set, get) => ({
       isRegistered: false,
       isOnboarded: false,
-      opportunities: [
-        {
-          id: 'ORR-OPP-000001',
-          title: 'Strategic Energy Advisory',
-          description: 'Strategic Energy Advisory project to evaluate regional energy strategies.',
-          dateAssigned: 'Oct 24, 2023',
-          status: 'New Opportunity',
-          stage: 'EXPRESSION_OF_INTEREST',
-          lastUpdated: new Date().toISOString(),
-          createdBy: 'Admin System',
-          sentTo: ['ORR-CONS-8492'],
-          summaryVersion: 'v1.0'
-        }
-      ],
+      opportunities: [],
       setRegistered: (status) => set({ isRegistered: status }),
       setOnboarded: (status) => set({ isOnboarded: status }),
       updateOpportunityStage: (id, stage, status) => set((state) => ({
@@ -650,7 +638,11 @@ export const useConsultantStore = create<ConsultantState>()(
   verify2fa: async (code) => {
     try {
       const tempToken = sessionStorage.getItem("temp_access_token");
-      if (!tempToken) {
+      const userDataStr = sessionStorage.getItem("temp_user_data");
+      const user = userDataStr ? JSON.parse(userDataStr) : null;
+      const email = user?.email || sessionStorage.getItem("verify_email") || "";
+
+      if (!tempToken && !email) {
         set({ loginError: 'Session expired. Please sign in again.' });
         return false;
       }
@@ -658,15 +650,13 @@ export const useConsultantStore = create<ConsultantState>()(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${tempToken}`
+          ...(tempToken ? { "Authorization": `Bearer ${tempToken}` } : {})
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ email, code })
       });
       const data = await response.json();
 
-      if (response.ok) {
-        const userDataStr = sessionStorage.getItem("temp_user_data");
-        const user = userDataStr ? JSON.parse(userDataStr) : null;
+      if (response.ok && (data.success !== false)) {
         const status = user?.status || 'APPROVED';
         const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
         
@@ -690,7 +680,7 @@ export const useConsultantStore = create<ConsultantState>()(
           get().fetchProfile();
         }
         
-        localStorage.setItem("access_token", data.access || tempToken);
+        localStorage.setItem("access_token", data.access || tempToken || "");
         sessionStorage.removeItem("temp_access_token");
         sessionStorage.removeItem("temp_user_data");
 
@@ -701,7 +691,40 @@ export const useConsultantStore = create<ConsultantState>()(
         );
         return true;
       } else {
-        set({ loginError: data.error || 'Security validation code incorrect. Please verify and try again.' });
+        set({ loginError: data.error || data.message || 'Security validation code incorrect. Please verify and try again.' });
+        return false;
+      }
+    } catch (e) {
+      set({ loginError: 'Network error communicating with authentication server.' });
+      return false;
+    }
+  },
+
+  resend2fa: async (emailArg) => {
+    try {
+      const userDataStr = sessionStorage.getItem("temp_user_data");
+      const user = userDataStr ? JSON.parse(userDataStr) : null;
+      const email = emailArg || user?.email || sessionStorage.getItem("verify_email");
+      if (!email) {
+        set({ loginError: 'Email not found. Please sign in again.' });
+        return false;
+      }
+      const response = await fetch(`${API_BASE}/api/auth/mfa/resend/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (response.ok && data.success !== false) {
+        set({ loginError: null });
+        get().addNotification(
+          'Verification Code Resent',
+          `A new verification code has been dispatched to ${email}.`,
+          'SYSTEM'
+        );
+        return true;
+      } else {
+        set({ loginError: data.error || data.message || 'Failed to resend verification code.' });
         return false;
       }
     } catch (e) {
@@ -724,7 +747,21 @@ export const useConsultantStore = create<ConsultantState>()(
         const json = await response.json();
         if (json.success && json.data) {
           const p = json.data;
+          const status = (p.profileStatus || p.status || '').toUpperCase();
+          const uncompletedStatuses = ['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT', 'ACCOUNT CREATED', 'EMAIL VERIFIED'];
+          const isDoneByStatus = status ? !uncompletedStatuses.includes(status) : false;
+          const isDoneByFlag = Boolean(p.is_onboarding_complete || p.onboarding_completed || p.onboardingCompleted);
+
+          let frontendStatus: ProfileData['profileStatus'] = p.profileStatus || 'Draft';
+          if (status === 'PENDING_REVIEW' || status === 'PENDING REVIEW' || status === 'PENDING') frontendStatus = 'Pending Review';
+          if (status === 'APPROVED') frontendStatus = 'Approved';
+          if (status === 'NEEDS_CLARIFICATION' || status === 'NEEDS CLARIFICATION') frontendStatus = 'Needs Clarification';
+          if (status === 'REJECTED') frontendStatus = 'Rejected';
+          if (status === 'SUSPENDED') frontendStatus = 'Suspended';
+          if (status === 'ARCHIVED') frontendStatus = 'Archived';
+
           set(state => ({
+            onboardingCompleted: state.onboardingCompleted || isDoneByStatus || isDoneByFlag,
             profileData: {
               ...state.profileData,
               firstName: p.firstName || state.profileData.firstName,
@@ -735,7 +772,7 @@ export const useConsultantStore = create<ConsultantState>()(
               country: p.country || state.profileData.country,
               timezone: p.timezone || state.profileData.timezone,
               jobTitle: p.jobTitle || state.profileData.jobTitle,
-              profileStatus: p.profileStatus || state.profileData.profileStatus,
+              profileStatus: frontendStatus,
             }
           }));
         }
