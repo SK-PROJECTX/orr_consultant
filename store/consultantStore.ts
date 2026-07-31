@@ -381,7 +381,41 @@ const INITIAL_TASKS: Task[] = [];
 
 const INITIAL_INVOICES: Invoice[] = [];
 
-const INITIAL_DOCUMENTS: VaultDocument[] = [];
+const INITIAL_DOCUMENTS: VaultDocument[] = [
+  {
+    id: 'fld-root-1',
+    title: 'Project Deliverables',
+    category: 'OPERATIONAL',
+    content: '',
+    type: 'folder',
+    status: 'UNLOCKED',
+    lastModified: new Date().toISOString(),
+    trackChanges: [],
+    parentId: null
+  },
+  {
+    id: 'fld-root-2',
+    title: 'Technical Specs & Scopes',
+    category: 'TECHNICAL',
+    content: '',
+    type: 'folder',
+    status: 'UNLOCKED',
+    lastModified: new Date().toISOString(),
+    trackChanges: [],
+    parentId: null
+  },
+  {
+    id: 'doc-seed-1',
+    title: 'Executive Briefing & Scope Summary.docx',
+    category: 'TECHNICAL',
+    content: 'Executive briefing document outlining consulting scope, methodology, and key milestones.',
+    type: 'doc',
+    status: 'UNLOCKED',
+    lastModified: new Date().toISOString(),
+    trackChanges: [],
+    parentId: null
+  }
+];
 
 const INITIAL_MESSAGES: Message[] = [];
 
@@ -890,35 +924,35 @@ export const useConsultantStore = create<ConsultantState>()(
       console.error('Failed to fetch consultant invoices:', e);
     }
   },
-    fetchDocuments: async () => {
+  fetchDocuments: async () => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
-      const token = localStorage.getItem('access_token');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number');
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
       if (!cNum || !token) return;
       
       const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-        if (res.ok) {
-          const json = await res.json();
-          let arr = [];
-          if (Array.isArray(json)) arr = json;
-          else if (json && Array.isArray(json.data)) arr = json.data;
-          else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
-          else if (json && Array.isArray(json.results)) arr = json.results;
-          
-          if (arr.length >= 0) {
-            const mapped = arr.map((d: any) => ({
+      if (res.ok) {
+        const json = await res.json();
+        let arr = [];
+        if (Array.isArray(json)) arr = json;
+        else if (json && Array.isArray(json.data)) arr = json.data;
+        else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
+        else if (json && Array.isArray(json.results)) arr = json.results;
+        
+        if (arr.length > 0) {
+          const mapped = arr.map((d: any) => ({
             id: String(d.id),
             title: d.title,
-            category: d.category,
-            content: d.content,
-            type: d.doc_type,
-            status: d.status,
-            lastModified: d.created_at,
-            parentId: d.parent_id,
+            category: d.category || 'OPERATIONAL',
+            content: d.content || '',
+            type: d.doc_type || 'doc',
+            status: d.status || 'UNLOCKED',
+            lastModified: d.created_at || new Date().toISOString(),
+            parentId: d.parent_id ? String(d.parent_id) : null,
             trackChanges: [],
-            fileMeta: d.doc_type === 'file' ? { size: d.file_size, mimeType: d.mime_type } : undefined
+            fileMeta: d.doc_type === 'file' ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined
           }));
           set({ documents: mapped });
         }

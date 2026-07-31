@@ -26,6 +26,8 @@ export default function MeetingsTab() {
   const [timeSlot, setTimeSlot] = useState('02:00 PM - 02:30 PM');
   const [topic, setTopic] = useState('');
   const [selectedPm, setSelectedPm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   React.useEffect(() => {
@@ -45,16 +47,25 @@ export default function MeetingsTab() {
     '04:30 PM - 05:00 PM'
   ];
 
-  const handleBooking = (e: React.FormEvent) => {
+  const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) {
       alert(t('meetings.alertProvideTopic'));
       return;
     }
 
-    bookMeeting(`PM Sync: ${topic.trim()}`, date, timeSlot, selectedPm);
-    setTopic('');
-    setIsModalOpen(false);
+    setIsSubmitting(true);
+    try {
+      await bookMeeting(`PM Sync: ${topic.trim()}`, date, timeSlot, selectedPm);
+      setToastMessage({ text: `Meeting scheduled successfully for ${date} (${timeSlot})!`, type: 'success' });
+      setTimeout(() => setToastMessage(null), 4000);
+      setTopic('');
+      setIsModalOpen(false);
+    } catch (err) {
+      setToastMessage({ text: `Failed to schedule meeting. Please try again.`, type: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Simple mini-calendar generation for visual mock (May 2026)
@@ -83,6 +94,18 @@ export default function MeetingsTab() {
           {t('meetings.desc')}
         </p>
       </div>
+
+      {/* Action Toast Feedback */}
+      {toastMessage && (
+        <div className={`p-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-between animate-in fade-in ${
+          toastMessage.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'
+        }`}>
+          <span>{toastMessage.text}</span>
+          <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-white/10 rounded-md">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-6 lg:min-h-[600px]">
         
@@ -287,15 +310,18 @@ export default function MeetingsTab() {
                   <button 
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors"
+                    disabled={isSubmitting}
+                    className="px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                   >
                     {t('meetings.cancel')}
                   </button>
                   <button 
                     type="submit"
-                    className="px-6 py-2.5 rounded-xl font-black bg-primary hover:bg-[#11aa6a] text-slate-950 transition-all shadow-md shadow-primary/10 flex items-center gap-2"
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 rounded-xl font-black bg-primary hover:bg-[#11aa6a] text-slate-950 transition-all shadow-md shadow-primary/10 flex items-center gap-2 disabled:opacity-50"
                   >
-                    {t('meetings.saveBooking')}
+                    {isSubmitting && <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />}
+                    {isSubmitting ? 'Reserving...' : t('meetings.saveBooking')}
                   </button>
                 </div>
 

@@ -18,6 +18,7 @@ import SlidesEditor from '../vault/editors/SlidesEditor';
 export default function VaultTab() {
   const { t } = useTranslation();
   const documents = useConsultantStore(state => state.documents);
+  const fetchDocuments = useConsultantStore(state => state.fetchDocuments);
   const activeJobs = useConsultantStore(state => state.activeJobs);
   const updateDocumentContent = useConsultantStore(state => state.updateDocumentContent);
   const createFolder = useConsultantStore(state => state.createFolder);
@@ -40,7 +41,8 @@ export default function VaultTab() {
 
   React.useEffect(() => {
     setIsMounted(true);
-  }, []);
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   React.useEffect(() => {
     if (view !== 'studio') return;
@@ -182,12 +184,14 @@ export default function VaultTab() {
   };
 
   const filteredDocs = unlockedDocs.filter(d => {
-    const matchesSearch = d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = d.title.toLowerCase().includes(searchQuery.toLowerCase()) || (d.category || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     if (searchQuery) {
       return matchesSearch; // Global search if typing
     } else {
-      return d.parentId === currentFolderId; // Otherwise filter by current directory
+      const docParent = d.parentId ? String(d.parentId) : null;
+      const currentParent = currentFolderId ? String(currentFolderId) : null;
+      return docParent === currentParent; // Otherwise filter by current directory
     }
   }).sort((a, b) => {
     // Folders always on top
