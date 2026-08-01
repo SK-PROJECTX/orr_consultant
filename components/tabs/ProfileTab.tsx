@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { useConsultantStore, ProfileData } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { User, Briefcase, Award, Calendar, Save, X, Globe, Phone, Mail, Link as LinkIcon, Camera, MapPin, Building2, BookOpen, Clock, Tag, ChevronDown, CheckSquare, Plus } from 'lucide-react';
 
 type Tab = 'personal' | 'professional' | 'skills' | 'availability';
@@ -17,6 +18,7 @@ export default function ProfileTab() {
   const [formData, setFormData] = useState<ProfileData>(profileData);
   const [skillName, setSkillName] = useState('');
   const [skillLevel, setSkillLevel] = useState<'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'>('Intermediate');
+  const [isMounted, setIsMounted] = useState(false);
 
   // Sync state if profileData changes externally
   useEffect(() => {
@@ -25,8 +27,13 @@ export default function ProfileTab() {
 
   // Fetch from backend on mount to ensure we have the latest data
   useEffect(() => {
+    setIsMounted(true);
     fetchProfile();
   }, [fetchProfile]);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Profile..." sublabel="Fetching specialist credentials and configuration" />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

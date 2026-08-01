@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
 import { Briefcase, ChevronRight, ChevronLeft, Search, Filter } from 'lucide-react';
 import OpportunityResponseForm from '@/components/opportunities/OpportunityResponseForm';
 import { useConsultantStore, OpportunityStage, Opportunity } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function OpportunitiesTab() {
   const opportunities = useConsultantStore(state => state.opportunities || []);
@@ -11,10 +12,21 @@ export default function OpportunitiesTab() {
   
   const [selectedOptId, setSelectedOptId] = useState<string | null>(null);
   const [isExternal, setIsExternal] = useState<boolean>(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   React.useEffect(() => {
-    fetchOpportunities();
+    setIsMounted(true);
+    let isCurrent = true;
+    fetchOpportunities().finally(() => {
+      if (isCurrent) setIsLoadingData(false);
+    });
+    return () => { isCurrent = false; };
   }, [fetchOpportunities]);
+
+  if (!isMounted || isLoadingData) {
+    return <LoadingSpinner label="Loading Opportunities..." sublabel="Fetching available project listings" />;
+  }
 
   const selectedOpportunity = opportunities.find(o => o.id === selectedOptId);
 

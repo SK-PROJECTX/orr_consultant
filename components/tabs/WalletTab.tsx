@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useConsultantStore, Invoice } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
   Wallet, 
   UploadCloud, 
@@ -33,14 +36,19 @@ export default function WalletTab() {
   const [fileName, setFileName] = useState('');
   const [notes, setNotes] = useState('');
   const [fileDragging, setFileDragging] = useState(false);
-
-  // Expands detail
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
-
-  // Withdrawal State
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<number | ''>('');
   const [withdrawMethod, setWithdrawMethod] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Wallet..." sublabel="Fetching ledger balance & payment transactions" />;
+  }
 
   // Completed or active billable tasks list
   const billableTasks = tasks.filter(t => t.status === 'COMPLETED' || t.status === 'UNDER_REVIEW');

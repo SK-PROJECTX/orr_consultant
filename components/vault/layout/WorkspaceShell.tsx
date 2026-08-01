@@ -74,41 +74,82 @@ export default function WorkspaceShell({
                         exit={{ opacity: 0 }}
                         className="flex-1 flex flex-col overflow-hidden"
                      >
-                        {(activeDocument.link || activeDocument.webViewLink) && !isMock ? (
-                           <div className="flex-1 bg-card flex flex-col">
+                        {((activeDocument.link || activeDocument.webViewLink) && !isMock) || (activeDocument.type === 'file' || (activeDocument.content && activeDocument.content.startsWith('data:'))) ? (
+                           <div className="flex-1 bg-card flex flex-col relative">
                               <div className="h-10 border-b border-white/10 flex items-center justify-between px-6 bg-white/[0.02]">
                                  <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${activeDocument.type === 'pdf' ? 'bg-red-500' : (activeDocument.type === 'docx' || activeDocument.type === 'xlsx' || activeDocument.type === 'pptx') ? 'bg-blue-400' : 'bg-green-500'}`} />
+                                    <div className={`w-2 h-2 rounded-full ${activeDocument.type === 'pdf' || (activeDocument.content?.startsWith('data:application/pdf') || activeDocument.title?.toLowerCase().endsWith('.pdf')) ? 'bg-red-500' : (activeDocument.type === 'docx' || activeDocument.type === 'xlsx' || activeDocument.type === 'pptx' || activeDocument.title?.toLowerCase().endsWith('.docx') || activeDocument.title?.toLowerCase().endsWith('.xlsx') || activeDocument.title?.toLowerCase().endsWith('.pptx')) ? 'bg-blue-400' : 'bg-green-500'}`} />
                                     <span className="text-xs font-semibold text-slate-400">
-                                       {activeDocument.type === 'pdf' ? 'PDF Viewer' : (activeDocument.documentSource?.startsWith('google_')) ? 'Live Google Sync' : 'Office Preview'}
+                                       {(activeDocument.type === 'pdf' || activeDocument.content?.startsWith('data:application/pdf') || activeDocument.title?.toLowerCase().endsWith('.pdf')) ? 'PDF Viewer' : (activeDocument.documentSource?.startsWith('google_')) ? 'Live Google Sync' : (activeDocument.content?.startsWith('data:image/')) ? 'Image Viewer' : 'Office Preview'}
                                     </span>
                                  </div>
                                  <div className="flex items-center gap-4">
-                                    <a
-                                       href={activeDocument.link || activeDocument.webViewLink}
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                                    >
-                                       Open in new tab <ExternalLink size={12} />
-                                    </a>
+                                    {(activeDocument.link || activeDocument.webViewLink) && (
+                                       <a
+                                          href={activeDocument.link || activeDocument.webViewLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                                       >
+                                          Open in new tab <ExternalLink size={12} />
+                                       </a>
+                                    )}
                                  </div>
                               </div>
-                              <iframe
-                                 src={(() => {
-                                    const link = activeDocument.link || activeDocument.webViewLink;
-                                    const isGoogleNative = activeDocument.documentSource?.startsWith('google_') || link.includes('docs.google.com');
-
-                                    if (activeDocument.type === 'pdf') return link;
-                                    if (isGoogleNative) return link;
-                                    if (['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(activeDocument.type)) {
-                                       return `https://docs.google.com/viewer?url=${encodeURIComponent(link)}&embedded=true`;
+                              {(() => {
+                                 const link = activeDocument.link || activeDocument.webViewLink;
+                                 const isDataUrl = activeDocument.content?.startsWith('data:');
+                                 const isPdf = activeDocument.type === 'pdf' || activeDocument.content?.startsWith('data:application/pdf') || activeDocument.title?.toLowerCase().endsWith('.pdf');
+                                 const isImage = activeDocument.content?.startsWith('data:image/');
+                                 
+                                 if (isDataUrl) {
+                                    if (isPdf) {
+                                       return (
+                                          <iframe src={activeDocument.content} className="flex-1 w-full border-none bg-slate-900" title={activeDocument.title} />
+                                       );
+                                    } else if (isImage) {
+                                       return (
+                                          <div className="flex-1 flex items-center justify-center bg-slate-900/50 p-4">
+                                             <img src={activeDocument.content} alt={activeDocument.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                                          </div>
+                                       );
+                                    } else if (!link) {
+                                       // Fallback for Office documents as data URLs (can't be iframed without a public URL)
+                                       return (
+                                          <div className="flex-1 flex flex-col items-center justify-center bg-card text-center p-8 space-y-4">
+                                             <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 shadow-sm">
+                                                <FileText size={32} />
+                                             </div>
+                                             <h3 className="text-xl font-bold text-white">{activeDocument.title}</h3>
+                                             <p className="text-slate-400 text-sm max-w-md">Office Preview requires a public link. Click below to download and view this file.</p>
+                                             <button 
+                                                onClick={() => {
+                                                   const a = document.createElement('a');
+                                                   a.href = activeDocument.content;
+                                                   a.download = activeDocument.title;
+                                                   document.body.appendChild(a);
+                                                   a.click();
+                                                   document.body.removeChild(a);
+                                                }}
+                                                className="px-6 py-2.5 bg-primary text-slate-900 font-bold rounded-xl hover:bg-lemon transition-colors"
+                                             >
+                                                Download File
+                                             </button>
+                                          </div>
+                                       );
                                     }
-                                    return link;
-                                 })()}
-                                 className="flex-1 w-full border-none bg-white"
-                                 title={activeDocument.title}
-                              />
+                                 }
+                                 
+                                 // Original Link Logic
+                                 const isGoogleNative = activeDocument.documentSource?.startsWith('google_') || (link && link.includes('docs.google.com'));
+
+                                 if (activeDocument.type === 'pdf') return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
+                                 if (isGoogleNative) return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
+                                 if (['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(activeDocument.type)) {
+                                    return <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(link)}&embedded=true`} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
+                                 }
+                                 return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
+                              })()}
                            </div>
                         ) : (
                            renderEditor()

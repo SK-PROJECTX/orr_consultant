@@ -1,6 +1,9 @@
+'use client';
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useConsultantStore, JobOffer } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
   ShieldAlert, 
   CheckCircle, 
@@ -38,11 +41,17 @@ export default function DashboardTab() {
 
   const activeTasks = tasks.filter(t => t.status !== 'COMPLETED');
   const [nodeKey, setNodeKey] = useState('ORR-CONS-GEN');
+  const [isMounted, setIsMounted] = useState(false);
 
   React.useEffect(() => {
+    setIsMounted(true);
     const cNum = sessionStorage.getItem('consultant_number');
     if (cNum) setNodeKey(cNum);
   }, []);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Dashboard..." sublabel="Syncing metrics & assignment feeds" />;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
