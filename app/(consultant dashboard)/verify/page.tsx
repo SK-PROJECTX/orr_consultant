@@ -14,6 +14,7 @@ export default function VerifyPage() {
   const [email, setEmail] = useState("");
   const [consultantNumber, setConsultantNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function VerifyPage() {
   }, []);
 
   const verifyConsultant = useConsultantStore(state => state.verifyConsultant);
+  const resend2fa = useConsultantStore(state => state.resend2fa);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,6 +140,32 @@ export default function VerifyPage() {
             >
               {isLoading ? "Verifying..." : "Verify Consultant Profile"}
             </button>
+
+            <div className="flex justify-between items-center text-xs font-bold text-slate-500 pt-2">
+              <Link href="/signin" className="hover:text-white transition font-mono">
+                Back to Sign In
+              </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    setError("Please enter your email to resend the code.");
+                    return;
+                  }
+                  setIsResending(true);
+                  const res = await resend2fa(email);
+                  setIsResending(false);
+                  if (res) {
+                    setError(null);
+                    alert("A new verification code has been dispatched to your email.");
+                  }
+                }}
+                disabled={isResending}
+                className="text-[#61FD51] hover:underline cursor-pointer transition font-mono disabled:opacity-50"
+              >
+                {isResending ? "Resending..." : "Resend Code"}
+              </button>
+            </div>
           </form>
         </div>
       </div>

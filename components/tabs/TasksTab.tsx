@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useConsultantStore, Task } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   Clock,
   AlertCircle,
@@ -163,6 +164,7 @@ export default function TasksTab() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   const isSubmittingRef = React.useRef(submittingTaskId);
   const isDraggingRef = React.useRef(activeDragId);
@@ -171,6 +173,7 @@ export default function TasksTab() {
   );
 
   React.useEffect(() => {
+    setIsMounted(true);
     isSubmittingRef.current = submittingTaskId;
   }, [submittingTaskId]);
 
@@ -187,6 +190,10 @@ export default function TasksTab() {
     }, 10000);
     return () => clearInterval(interval);
   }, [fetchTasks]);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Tasks..." sublabel="Fetching active deliverables and Kanban board" />;
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

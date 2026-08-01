@@ -20,7 +20,7 @@ const Workbook = dynamic(() => import('@fortune-sheet/react').then(mod => mod.Wo
 });
 
 export default function SheetsEditor({ content, onChange, title, onTitleChange }: SheetsEditorProps) {
-    const [data] = useState(() => {
+    const [data, setData] = useState<any[]>(() => {
         try {
             if (content && content.startsWith('{')) {
                 const parsed = JSON.parse(content);
@@ -68,6 +68,42 @@ export default function SheetsEditor({ content, onChange, title, onTitleChange }
         return [{ name: "Sheet1", celldata: [] }];
     });
 
+    const [isParsingExcel, setIsParsingExcel] = useState(false);
+
+    useEffect(() => {
+        if (content && content.startsWith('data:') && (content.includes('excel') || content.includes('spreadsheetml') || title?.toLowerCase().endsWith('.xlsx') || title?.toLowerCase().endsWith('.xls'))) {
+            setIsParsingExcel(true);
+            try {
+                const bstr = atob(content.split(',')[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while(n--){
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const file = new File([u8arr], title || "file.xlsx", {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+                
+                // @ts-ignore
+                import('luckyexcel').then((LuckyExcel) => {
+                    LuckyExcel.default.transformExcelToLucky(file, (exportJson: any) => {
+                        if (exportJson.sheets && exportJson.sheets.length > 0) {
+                            setData(exportJson.sheets);
+                            // Auto-save the parsed json back so next load is faster and editable
+                            const newContent = JSON.stringify(exportJson.sheets);
+                            onChange(newContent);
+                        }
+                        setIsParsingExcel(false);
+                    }, (err: any) => {
+                        console.error("Failed to parse Excel file", err);
+                        setIsParsingExcel(false);
+                    });
+                });
+            } catch (err) {
+                console.error(err);
+                setIsParsingExcel(false);
+            }
+        }
+    }, []);
+
     const sheetRef = useRef<any>(null);
     const contentRef = useRef(content);
     
@@ -109,12 +145,20 @@ export default function SheetsEditor({ content, onChange, title, onTitleChange }
             
             <div className="flex-1 relative w-full overflow-hidden flex">
                 <div className="flex-1 relative">
-                    <Workbook 
-                        ref={sheetRef}
-                        data={data} 
-                        onChange={handleChange} 
-                        lang="en"
-                    />
+                    {isParsingExcel ? (
+                        <div className="flex flex-col items-center justify-center h-full w-full bg-white text-gray-500">
+                            <Loader2 className="animate-spin mb-4 text-primary" size={40} />
+                            <h3 className="text-lg font-medium text-gray-800">Parsing Excel File...</h3>
+                            <p className="text-sm mt-2">Loading sheets and formatting. This may take a moment for larger files.</p>
+                        </div>
+                    ) : (
+                        <Workbook 
+                            ref={sheetRef}
+                            data={data} 
+                            onChange={handleChange} 
+                            lang="en"
+                        />
+                    )}
                 </div>
                 
             </div>

@@ -120,15 +120,18 @@ export default function DashboardLayout({
     );
   }
 
+  const statusStr = profileStatus?.toUpperCase() || '';
+  const isProfileSubmitted = Boolean(statusStr && !['DRAFT', 'ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'ACCOUNT CREATED', 'EMAIL VERIFIED'].includes(statusStr));
+  const effectiveOnboardingCompleted = onboardingCompleted || isProfileSubmitted;
+
   // Onboarding Compliance Guard
-  if (!onboardingCompleted) {
+  if (!effectiveOnboardingCompleted) {
     return <ConsultantOnboarding />;
   }
 
   // Sheet 2 & 3 Limited Access States
   // Pending Review & Needs Clarification: Consultant can view profile, edit certain profile fields, and see pending status. 
   // Rejected & Suspended & Archived: No operational portal access.
-  const statusStr = profileStatus?.toUpperCase() || '';
   const isPendingReview = statusStr === 'PENDING' || statusStr === 'PENDING REVIEW' || statusStr === 'PENDING_REVIEW' || statusStr === 'NEEDS CLARIFICATION' || statusStr === 'NEEDS_CLARIFICATION';
   const isRestrictedPath = isPendingReview && pathname !== '/profile';
 

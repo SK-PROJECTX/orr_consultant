@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useConsultantStore } from '@/store/consultantStore';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   Send,
   User,
@@ -24,15 +27,19 @@ export default function ChatTab() {
   const clearMessages = useConsultantStore(state => state.clearMessages);
 
   const lastFetchedRef = useRef<string | null>(null);
+  const streamEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [attachment, setAttachment] = useState<{name: string, url: string, type: string} | null>(null);
   const [activeContact, setActiveContact] = useState('pm');
   const [directory, setDirectory] = useState<any[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const streamEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Scroll to bottom when messages load
   const scrollToBottom = () => {
@@ -92,6 +99,10 @@ export default function ChatTab() {
       setIsTyping(false);
     }
   }, [messages]);
+
+  if (!isMounted) {
+    return <LoadingSpinner label="Loading Messaging..." sublabel="Connecting to secure communication channel" />;
+  }
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

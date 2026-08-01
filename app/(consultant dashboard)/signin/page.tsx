@@ -18,6 +18,7 @@ export default function SignInPage() {
 
   const loginConsultant = useConsultantStore(state => state.loginConsultant);
   const verify2fa = useConsultantStore(state => state.verify2fa);
+  const resend2fa = useConsultantStore(state => state.resend2fa);
   const is2faPending = useConsultantStore(state => state.is2faPending);
   const loginError = useConsultantStore(state => state.loginError);
   const isAuthenticated = useConsultantStore(state => state.isAuthenticated);
@@ -28,6 +29,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   // Phase 2: 2FA Cells State
   const [otpCells, setOtpCells] = useState<string[]>(new Array(6).fill(''));
@@ -100,22 +102,20 @@ export default function SignInPage() {
     }
   };
 
-  const handleVerify2fa = (e: React.FormEvent) => {
+  const handleVerify2fa = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = otpCells.join('');
     if (code.length < 6) return;
 
     setLoading(true);
-    setTimeout(() => {
-      const success = verify2fa(code);
-      setLoading(false);
-      if (!success) {
-        setOtpCells(new Array(6).fill(''));
-        if (cellRefs.current[0]) {
-          cellRefs.current[0].focus();
-        }
+    const success = await verify2fa(code);
+    setLoading(false);
+    if (!success) {
+      setOtpCells(new Array(6).fill(''));
+      if (cellRefs.current[0]) {
+        cellRefs.current[0].focus();
       }
-    }, 600);
+    }
   };
 
   return (
@@ -338,7 +338,18 @@ export default function SignInPage() {
                 >
                   {t('auth.changeCredentials')}
                 </button>
-                <span>{t('auth.gatewayActive')}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setResendLoading(true);
+                    await resend2fa();
+                    setResendLoading(false);
+                  }}
+                  disabled={resendLoading}
+                  className="text-[#61FD51] hover:underline cursor-pointer transition font-mono disabled:opacity-50"
+                >
+                  {resendLoading ? "Resending..." : "Resend Code"}
+                </button>
               </div>
             </form>
           )}
