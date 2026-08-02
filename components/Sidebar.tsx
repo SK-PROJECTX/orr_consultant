@@ -22,7 +22,8 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
-  Briefcase
+  Briefcase,
+  Bug
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -60,6 +61,7 @@ export default function Sidebar({ openNotifications }: SidebarProps) {
     { id: 'chat', label: t('sidebar.chat'), icon: MessageSquare, badge: hasUnreadChat },
     { id: 'meetings', label: t('sidebar.meetings'), icon: Calendar },
     { id: 'profile', label: t('sidebar.profile'), icon: User },
+    { id: 'feedback', label: t('sidebar.feedback') || 'Technical Feedback', icon: Bug },
   ];
 
   const handleSignOutClick = () => {

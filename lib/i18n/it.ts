@@ -41,8 +41,44 @@ export const it = {
     signOut: 'Esci dal Portale',
     profileRole: 'Partner Specialista',
     profile: 'Profilo',
+    feedback: 'Feedback Tecnico',
     uncategorized: 'Non categorizzato',
     confirmSignOut: 'Vuoi davvero disconnetterti dal portale specialista sicuro?'
+  },
+  feedbackPage: {
+    title: 'Invia Feedback Tecnico',
+    description: 'Usa questo modulo per segnalare bug, errori o suggerire miglioramenti UI/UX.',
+    titleLabel: 'Titolo',
+    titlePlaceholder: 'Es: Il pulsante non funziona sulla dashboard',
+    category: 'Categoria',
+    categoryPlaceholder: 'Seleziona categoria...',
+    categoryOptions: {
+      ui_issue: 'Problema UI / Design',
+      bug: 'Bug / Errore',
+      feature_request: 'Richiesta Funzionalità',
+      other: 'Altro'
+    },
+    priority: 'Priorità',
+    priorityPlaceholder: 'Seleziona priorità...',
+    priorityOptions: {
+      low: 'Bassa (Non urgente)',
+      medium: 'Media (Influisce sul flusso di lavoro)',
+      high: 'Alta (Problema critico / Bloccante)'
+    },
+    details: 'Descrizione',
+    detailsPlaceholder: 'Fornisci i passaggi per riprodurre il problema, cosa ti aspettavi che accadesse e cosa è realmente accaduto...',
+    hasScreenshots: 'Hai screenshot o registrazioni dello schermo?',
+    screenshotsHint: 'Le prove visive ci aiutano a risolvere i problemi molto più velocemente.',
+    yes: 'Sì',
+    no: 'No',
+    uploadHint: 'Carica screenshot o video',
+    browseFiles: 'Sfoglia File',
+    remove: 'Rimuovi',
+    submitting: 'Invio in corso...',
+    submit: 'Invia Feedback',
+    successTitle: 'Feedback Inviato!',
+    successDescription: 'Grazie per aiutarci a migliorare. Il nostro team tecnico ha ricevuto la tua segnalazione e la indagherà a breve.',
+    submitAnother: 'Invia Un\'altra Segnalazione'
   },
   layout: {
     alertLogTitle: 'Registro Avvisi Workspace',

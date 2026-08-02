@@ -42,8 +42,44 @@ export const en = {
     signOut: 'Sign Out Specialist',
     profileRole: 'Specialist Partner',
     profile: 'Profile',
+    feedback: 'Technical Feedback',
     uncategorized: 'Uncategorized',
     confirmSignOut: 'Confirm signing out of secure specialist portal session?'
+  },
+  feedbackPage: {
+    title: 'Submit Technical Feedback',
+    description: 'Use this form to report bugs, errors, or suggest UI/UX improvements.',
+    titleLabel: 'Title',
+    titlePlaceholder: 'E.g., Button not working on dashboard',
+    category: 'Category',
+    categoryPlaceholder: 'Select category...',
+    categoryOptions: {
+      ui_issue: 'UI / Design Issue',
+      bug: 'Bug / Error',
+      feature_request: 'Feature Request',
+      other: 'Other'
+    },
+    priority: 'Priority',
+    priorityPlaceholder: 'Select priority...',
+    priorityOptions: {
+      low: 'Low (Not urgent)',
+      medium: 'Medium (Affects workflow)',
+      high: 'High (Critical issue / Blocker)'
+    },
+    details: 'Description',
+    detailsPlaceholder: 'Please provide steps to reproduce the issue, what you expected to happen, and what actually happened...',
+    hasScreenshots: 'Do you have screenshots or screen recordings?',
+    screenshotsHint: 'Visual evidence helps us resolve issues much faster.',
+    yes: 'Yes',
+    no: 'No',
+    uploadHint: 'Upload screenshots or videos',
+    browseFiles: 'Browse Files',
+    remove: 'Remove',
+    submitting: 'Submitting...',
+    submit: 'Submit Feedback',
+    successTitle: 'Feedback Submitted!',
+    successDescription: 'Thank you for helping us improve. Our technical team has received your report and will investigate it shortly.',
+    submitAnother: 'Submit Another Report'
   },
   layout: {
     alertLogTitle: 'Workspace Alert Log',
