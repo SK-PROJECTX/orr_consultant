@@ -775,6 +775,36 @@ export const useConsultantStore = create<ConsultantState>()(
               country: p.country || state.profileData.country,
               timezone: p.timezone || state.profileData.timezone,
               jobTitle: p.jobTitle || state.profileData.jobTitle,
+              headline: p.headline || state.profileData.headline,
+              bio: p.bio || state.profileData.bio,
+              gender: p.gender || state.profileData.gender,
+              dateOfBirth: p.dateOfBirth || state.profileData.dateOfBirth,
+              nationality: p.nationality || state.profileData.nationality,
+              languages: p.languages || state.profileData.languages,
+              website: p.website || state.profileData.website,
+              socialLinks: {
+                ...state.profileData.socialLinks,
+                ...(p.socialLinks || {})
+              },
+              consultantCategory: p.consultantCategory || state.profileData.consultantCategory,
+              primarySpecialization: p.primarySpecialization || state.profileData.primarySpecialization,
+              secondarySpecializations: p.secondarySpecializations || state.profileData.secondarySpecializations,
+              yearsOfExperience: p.yearsOfExperience !== undefined ? p.yearsOfExperience : state.profileData.yearsOfExperience,
+              currentCompany: p.currentCompany || state.profileData.currentCompany,
+              previousCompanies: p.previousCompanies || state.profileData.previousCompanies,
+              industryExpertise: p.industryExpertise || state.profileData.industryExpertise,
+              certifications: p.certifications || state.profileData.certifications,
+              licenses: p.licenses || state.profileData.licenses,
+              educationalQualifications: p.educationalQualifications || state.profileData.educationalQualifications,
+              professionalMemberships: p.professionalMemberships || state.profileData.professionalMemberships,
+              skills: p.skills || state.profileData.skills,
+              expertiseTags: p.expertiseTags || state.profileData.expertiseTags,
+              areasOfSpecialization: p.areasOfSpecialization || state.profileData.areasOfSpecialization,
+              consultingMethodologies: p.consultingMethodologies || state.profileData.consultingMethodologies,
+              availability: {
+                ...state.profileData.availability,
+                ...(p.availability || {})
+              },
               profileStatus: frontendStatus,
             }
           }));

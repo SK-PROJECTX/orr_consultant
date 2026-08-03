@@ -21,8 +21,9 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import AnalyticsOverview from '@/components/dashboard/AnalyticsOverview';
 
 export default function DashboardTab() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const onboardingData = useConsultantStore(state => state.onboardingData);
+  const profileData = useConsultantStore(state => state.profileData);
   const availableJobs = useConsultantStore(state => state.availableJobs);
   const activeJobs = useConsultantStore(state => state.activeJobs);
   const compliancePendingJobs = useConsultantStore(state => state.compliancePendingJobs);
@@ -67,10 +68,10 @@ export default function DashboardTab() {
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
           </div>
           <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-white">
-            {t('dashboard.welcomeBack')}
+            {language === 'it' ? 'Bentornato' : 'Welcome back'}, {profileData.firstName ? `${profileData.firstName} ${profileData.lastName}`.trim() : (sessionStorage.getItem('username') || 'Specialist')}
           </h1>
           <p className="text-slate-400 text-xs max-w-xl">
-            {t('dashboard.authorizedFor')} <strong className="text-slate-300 capitalize">{onboardingData?.industry || t('dashboard.generalConsultation')}</strong> {t('dashboard.scopesNoDirect')}
+            {t('dashboard.authorizedFor')} <strong className="text-slate-300 capitalize">{onboardingData?.industry || profileData.primarySpecialization || t('dashboard.generalConsultation')}</strong> {t('dashboard.scopesNoDirect')}
           </p>
         </div>
         <div className="text-xs font-mono text-slate-500 bg-slate-950/40 px-4 py-2.5 border border-white/5 rounded-xl">
