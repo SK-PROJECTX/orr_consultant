@@ -39,6 +39,7 @@ export default function Sidebar({ openNotifications }: SidebarProps) {
   const { t } = useTranslation();
 
   const onboardingData = useConsultantStore(state => state.onboardingData);
+  const profileData = useConsultantStore(state => state.profileData);
   const notifications = useConsultantStore(state => state.notifications);
   const messages = useConsultantStore(state => state.messages);
   const logoutConsultant = useConsultantStore(state => state.logoutConsultant);
@@ -155,9 +156,11 @@ export default function Sidebar({ openNotifications }: SidebarProps) {
           </div>
           {!isCollapsedView && (
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-extrabold text-white truncate hover:underline">{t('sidebar.profileRole')}</h3>
+              <h3 className="text-sm font-extrabold text-white truncate hover:underline">
+                {profileData.firstName ? `${profileData.firstName} ${profileData.lastName}`.trim() : (sessionStorage.getItem('username') || t('sidebar.profileRole'))}
+              </h3>
               <p className="text-[10px] text-slate-400 truncate capitalize">
-                {onboardingData?.industry || t('sidebar.uncategorized')}
+                {onboardingData?.industry || profileData.primarySpecialization || t('sidebar.uncategorized')}
               </p>
             </div>
           )}

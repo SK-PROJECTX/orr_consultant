@@ -15,7 +15,8 @@ import {
   X,
   File,
   Sparkles,
-  Bot
+  Bot,
+  Loader2
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
@@ -35,6 +36,8 @@ export default function ChatTab() {
   const [attachment, setAttachment] = useState<{name: string, url: string, type: string} | null>(null);
   const [activeContact, setActiveContact] = useState('pm');
   const [directory, setDirectory] = useState<any[]>([]);
+  const [isDirLoading, setIsDirLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -49,7 +52,11 @@ export default function ChatTab() {
   // Fetch directory on mount
   useEffect(() => {
     const cNum = sessionStorage.getItem('consultant_number');
-    if (!cNum) return;
+    if (!cNum) {
+      setIsDirLoading(false);
+      return;
+    }
+    setIsDirLoading(true);
     fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`)
       .then(res => res.json())
       .then(resData => {
@@ -62,7 +69,8 @@ export default function ChatTab() {
           if (data.length > 0) setActiveContact(data[0].id);
         }
       })
-      .catch(err => console.error('Failed to fetch directory', err));
+      .catch(err => console.error('Failed to fetch directory', err))
+      .finally(() => setIsDirLoading(false));
   }, []);
 
   // Poll messages for activeContact
@@ -73,10 +81,22 @@ export default function ChatTab() {
     lastFetchedRef.current = null;
     
     const fetchFn = async () => {
-      await fetchMessages(activeContact, lastFetchedRef.current || undefined);
-      const msgs = useConsultantStore.getState().messages;
-      if (msgs.length > 0) {
-        lastFetchedRef.current = msgs[msgs.length - 1].timestamp;
+      const isInitial = lastFetchedRef.current === null;
+      if (isInitial) {
+        setIsMessagesLoading(true);
+      }
+      try {
+        await fetchMessages(activeContact, lastFetchedRef.current || undefined);
+        const msgs = useConsultantStore.getState().messages;
+        if (msgs.length > 0) {
+          lastFetchedRef.current = msgs[msgs.length - 1].timestamp;
+        }
+      } catch (err) {
+        console.error("fetch messages error", err);
+      } finally {
+        if (isInitial) {
+          setIsMessagesLoading(false);
+        }
       }
     };
     
@@ -177,16 +197,27 @@ export default function ChatTab() {
             Directory
           </div>
           <div className="flex-1 overflow-y-auto">
-            {directory.map(c => (
-              <div 
-                key={c.id} 
-                onClick={() => setActiveContact(c.id)}
-                className={`p-4 border-b border-white/5 cursor-pointer transition-colors flex flex-col gap-1 ${activeContact === c.id ? 'bg-white/10 border-l-2 border-l-primary' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
-              >
-                <span className="text-sm font-bold text-white">{c.name}</span>
-                <span className="text-[10px] uppercase font-mono text-slate-400">{c.role}</span>
+            {isDirLoading ? (
+              <div className="flex flex-col items-center justify-center p-8 gap-3 h-32 text-slate-400">
+                <Loader2 className="animate-spin text-primary w-6 h-6" />
+                <span className="text-xs font-mono">Syncing directory...</span>
               </div>
-            ))}
+            ) : directory.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500 font-mono">
+                No active contacts found.
+              </div>
+            ) : (
+              directory.map(c => (
+                <div 
+                  key={c.id} 
+                  onClick={() => setActiveContact(c.id)}
+                  className={`p-4 border-b border-white/5 cursor-pointer transition-colors flex flex-col gap-1 ${activeContact === c.id ? 'bg-white/10 border-l-2 border-l-primary' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
+                >
+                  <span className="text-sm font-bold text-white">{c.name}</span>
+                  <span className="text-[10px] uppercase font-mono text-slate-400">{c.role}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -210,59 +241,72 @@ export default function ChatTab() {
 
           {/* Active message list */}
           <div className="flex-1 p-6 overflow-y-auto space-y-6 relative">
-            {messages.map(msg => {
-              const isConsultant = msg.sender === 'CONSULTANT';
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex gap-3 w-full ${isConsultant ? 'justify-end' : 'justify-start'}`}
-                >
-                  {/* Sender Avatar - Left for PM */}
-                  {!isConsultant && (
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
-                      <User size={14} className="text-slate-400" />
-                    </div>
-                  )}
+            {isMessagesLoading ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-400 bg-slate-950/20 backdrop-blur-[2px] z-20">
+                <Loader2 className="animate-spin text-primary w-8 h-8" />
+                <span className="text-xs font-mono">Syncing secure channel feeds...</span>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2 select-none py-12">
+                <MessageSquare size={36} className="text-slate-600 animate-pulse" />
+                <p className="text-sm font-bold font-mono">No conversation logs</p>
+                <p className="text-xs text-slate-600 text-center max-w-[250px]">Send a message to initiate active consultancy feedback.</p>
+              </div>
+            ) : (
+              messages.map(msg => {
+                const isConsultant = msg.sender === 'CONSULTANT';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 w-full ${isConsultant ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {/* Sender Avatar - Left for PM */}
+                    {!isConsultant && (
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
+                        <User size={14} className="text-slate-400" />
+                      </div>
+                    )}
 
-                  {/* Bubble content */}
-                  <div className={`space-y-1.5 max-w-[75%]`}>
-                    <span className={`text-[10px] font-bold text-slate-400 block px-1 ${isConsultant ? 'text-right' : 'text-left'}`}>
-                      {isConsultant ? 'Consultant' : (directory.find(c => c.id === activeContact)?.name || 'Project Manager')}
-                    </span>
-                    <div className={`px-4 py-3 text-sm leading-relaxed font-medium shadow-md ${isConsultant
-                        ? 'bg-gradient-to-br from-primary to-[#11aa6a] text-slate-950 rounded-2xl rounded-br-sm'
-                        : 'bg-slate-800/80 backdrop-blur-sm border border-white/5 text-slate-200 rounded-2xl rounded-bl-sm'
-                      }`}>
-                      {msg.attachment && (
-                        <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${isConsultant ? 'bg-black/10 border-black/10' : 'bg-white/5 border-white/10'}`}>
-                          {msg.attachment.type.startsWith('image/') ? (
-                            <img src={msg.attachment.url} alt={msg.attachment.name} className="w-10 h-10 rounded object-cover shadow-sm border border-white/10" />
-                          ) : (
-                            <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${isConsultant ? 'bg-black/10' : 'bg-white/10'}`}>
-                              <File size={20} className={isConsultant ? "text-slate-900" : "text-primary"} />
-                            </div>
-                          )}
-                          <span className={`text-xs font-bold truncate max-w-[150px] ${isConsultant ? 'text-slate-900' : 'text-white'}`}>
-                            {msg.attachment.name}
-                          </span>
-                        </div>
-                      )}
-                      {msg.text && <div>{msg.text}</div>}
+                    {/* Bubble content */}
+                    <div className={`space-y-1.5 max-w-[75%]`}>
+                      <span className={`text-[10px] font-bold text-slate-400 block px-1 ${isConsultant ? 'text-right' : 'text-left'}`}>
+                        {isConsultant ? 'Consultant' : (directory.find(c => c.id === activeContact)?.name || 'Project Manager')}
+                      </span>
+                      <div className={`px-4 py-3 text-sm leading-relaxed font-medium shadow-md ${isConsultant
+                          ? 'bg-gradient-to-br from-primary to-[#11aa6a] text-slate-950 rounded-2xl rounded-br-sm'
+                          : 'bg-slate-800/80 backdrop-blur-sm border border-white/5 text-slate-200 rounded-2xl rounded-bl-sm'
+                        }`}>
+                        {msg.attachment && (
+                          <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${isConsultant ? 'bg-black/10 border-black/10' : 'bg-white/5 border-white/10'}`}>
+                            {msg.attachment.type.startsWith('image/') ? (
+                              <img src={msg.attachment.url} alt={msg.attachment.name} className="w-10 h-10 rounded object-cover shadow-sm border border-white/10" />
+                            ) : (
+                              <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${isConsultant ? 'bg-black/10' : 'bg-white/10'}`}>
+                                <File size={20} className={isConsultant ? "text-slate-900" : "text-primary"} />
+                              </div>
+                            )}
+                            <span className={`text-xs font-bold truncate max-w-[150px] ${isConsultant ? 'text-slate-900' : 'text-white'}`}>
+                              {msg.attachment.name}
+                            </span>
+                          </div>
+                        )}
+                        {msg.text && <div>{msg.text}</div>}
+                      </div>
+                      <span className={`text-[10px] text-slate-500 block font-medium ${isConsultant ? 'text-right' : 'text-left'}`}>
+                        {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                    <span className={`text-[10px] text-slate-500 block font-medium ${isConsultant ? 'text-right' : 'text-left'}`}>
-                      {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+
+                    {/* Sender Avatar - Right for Consultant */}
+                    {isConsultant && (
+                      <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
+                        <User size={14} className="text-primary" />
+                      </div>
+                    )}
                   </div>
-
-                  {/* Sender Avatar - Right for Consultant */}
-                  {isConsultant && (
-                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
-                      <User size={14} className="text-primary" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })
+            )}
 
             {isTyping && (
               <div className="flex gap-3 justify-start items-end animate-in fade-in slide-in-from-bottom-2 duration-300">
