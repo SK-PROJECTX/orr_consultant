@@ -6,19 +6,29 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://orr-backend-1058258
 
 // 401 Interceptor Wrapper
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const response = await fetch(input, init);
-  if (response.status === 401) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('auth-token');
-      localStorage.removeItem('refresh_token');
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signin')) {
-        window.location.href = '/signin?expired=true';
+  try {
+    const response = await fetch(input, init);
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('refresh_token');
+        useConsultantStore.setState({ isAuthenticated: false });
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signin')) {
+          window.location.href = '/signin?expired=true';
+        }
       }
     }
+    return response;
+  } catch (error) {
+    console.warn('apiFetch network error:', error);
+    return new Response(JSON.stringify({ error: 'Network request failed or backend unreachable' }), {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-  return response;
 }
 
 export type OpportunityStage = 
@@ -44,6 +54,7 @@ export type OpportunityStage =
 // Types
 export interface ProfileData {
   // 1. Personal Information
+  consultant_number?: string;
   photoUrl?: string;
   firstName: string;
   lastName: string;
@@ -334,10 +345,7 @@ interface ConsultantState {
   documents: VaultDocument[];
   addDocumentTrackChange: (docId: string, type: 'INSERTION' | 'DELETION', text: string, line: number) => void;
   resetDocumentChanges: (docId: string) => void;
-  updateDocumentContent: (docId: string, newTitle: string, newContent: string) => void;
-  createFolder: (title: string, parentId: string | null) => Promise<void>;
-  createDocument: (type: 'doc' | 'sheet' | 'slide', title: string, parentId: string | null) => Promise<void>;
-  uploadFileToVault: (fileObj: any, parentId: string | null) => Promise<void>;
+
 
   // Chat
   messages: Message[];
@@ -363,7 +371,12 @@ interface ConsultantState {
   fetchJobs: () => Promise<void>;
   fetchTasks: () => Promise<void>;
   fetchInvoices: () => void;
+  // Document Vault Actions
   fetchDocuments: () => Promise<void>;
+  createFolder: (name: string, parentId?: string | null) => Promise<void>;
+  createDocument: (type: 'doc' | 'sheet' | 'slide', name: string, parentId?: string | null) => Promise<void>;
+  uploadFileToVault: (fileData: { name: string; type: string; size: number; content: string; file: File }, parentId?: string | null) => Promise<void>;
+  updateDocumentContent: (id: string, title: string, content: string) => Promise<void>;
   fetchNotifications: () => Promise<void>;
 
   // Opportunities and other fields
@@ -523,7 +536,9 @@ export const useConsultantStore = create<ConsultantState>()(
       });
       const data = await response.json();
       if (response.ok) {
-        if (data.data.user.user_type === 'consultant') {
+        const u = data.data?.user;
+        const isConsultant = u && (u.user_type === 'consultant' || u.role_name === 'consultant' || u.role_display === 'consultant' || u.role === 'consultant');
+        if (isConsultant) {
           const status = data.data.user.status || 'PENDING_REVIEW';
           const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
           
@@ -577,7 +592,9 @@ export const useConsultantStore = create<ConsultantState>()(
       });
       const data = await response.json();
       if (response.ok) {
-        if (data.data.user.user_type === 'consultant') {
+        const u = data.data?.user;
+        const isConsultant = u && (u.user_type === 'consultant' || u.role_name === 'consultant' || u.role_display === 'consultant' || u.role === 'consultant');
+        if (isConsultant) {
           // If status is not ACCOUNT_CREATED or EMAIL_VERIFIED, they have completed onboarding
           const status = data.data.user.status;
           const onboardingDone = !['ACCOUNT_CREATED', 'EMAIL_VERIFIED', 'DRAFT'].includes(status);
@@ -738,7 +755,7 @@ export const useConsultantStore = create<ConsultantState>()(
 
   fetchProfile: async () => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
@@ -861,8 +878,11 @@ export const useConsultantStore = create<ConsultantState>()(
             title: t.title,
             description: t.description,
             dueDate: t.due_date || new Date().toISOString(),
-            priority: t.priority?.toUpperCase() || 'MEDIUM',
-            status: t.status === 'completed' ? 'COMPLETED' : (t.status === 'submitted_for_review' || t.status === 'revision_required') ? 'UNDER_REVIEW' : t.status === 'in_progress' ? 'IN_PROGRESS' : t.status === 'blocked' ? 'BLOCKED' : 'ASSIGNED'
+            status: (t.status === 'completed' || t.status === 'COMPLETED') ? 'COMPLETED' : 
+                    (t.status === 'submitted_for_review' || t.status === 'revision_required' || t.status === 'under_review' || t.status === 'UNDER_REVIEW') ? 'UNDER_REVIEW' : 
+                    (t.status === 'in_progress' || t.status === 'IN_PROGRESS') ? 'IN_PROGRESS' : 
+                    (t.status === 'blocked' || t.status === 'BLOCKED') ? 'BLOCKED' : 
+                    'NOT_STARTED'
           }));
           set({ tasks: mappedTasks });
         }
@@ -874,7 +894,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchInvoices: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       const response = await apiFetch(`${API_BASE}/api/v1/consultants/invoices/?consultant__consultant_number=${cNum}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -925,57 +945,68 @@ export const useConsultantStore = create<ConsultantState>()(
   },
   fetchDocuments: async () => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number');
       const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
-      if (!cNum || !token) return;
+      if (!token) return;
       
-      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const json = await res.json();
-        let arr = [];
-        if (Array.isArray(json)) arr = json;
-        else if (json && Array.isArray(json.data)) arr = json.data;
-        else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
-        else if (json && Array.isArray(json.results)) arr = json.results;
-        
-        const mapped = arr.map((d: any) => {
-          let rawType = d.doc_type || d.document_type || d.type || '';
-          if (!rawType || rawType === 'file') {
-            const nameSource = d.title || d.link || d.file || '';
-            const match = nameSource.match(/\.([a-z0-9]+)(\?.*)?$/i);
-            if (match) rawType = match[1];
-          }
-          rawType = (rawType || 'doc').toLowerCase().replace(/^\./, '');
-          
-          const link = d.link || d.webViewLink || d.document_url || d.file || d.document || '';
-          const finalLink = link ? (link.startsWith('http') ? link : `${API_BASE}${link}`) : '';
-
-          return {
-            id: String(d.id),
-            title: d.title,
-            category: d.category || 'OPERATIONAL',
-            content: d.content || '',
-            type: rawType,
-            status: d.status || 'UNLOCKED',
-            lastModified: d.created_at || new Date().toISOString(),
-            parentId: d.parent_id ? String(d.parent_id) : null,
-            trackChanges: [],
-            fileMeta: (d.doc_type === 'file' || (d.content && typeof d.content === 'string' && d.content.startsWith('data:'))) ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined,
-            link: finalLink,
-            webViewLink: finalLink,
-            documentSource: d.document_source || d.documentSource || ''
-          };
+      let arr: any[] = [];
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
+      if (cNum) {
+        const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        set({ documents: mapped });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json)) arr = json;
+          else if (json && Array.isArray(json.data)) arr = json.data;
+          else if (json && json.data && Array.isArray(json.data.data)) arr = json.data.data;
+          else if (json && Array.isArray(json.results)) arr = json.results;
+        }
       }
+
+      const mapped = arr.map((d: any) => {
+        let rawType = d.doc_type || d.document_type || d.type || '';
+        if (!rawType || rawType === 'file') {
+          const nameSource = d.title || d.name || d.link || d.file || '';
+          const match = nameSource.match(/\.([a-z0-9]+)(\?.*)?$/i);
+          if (match) rawType = match[1];
+        }
+        rawType = (rawType || 'doc').toLowerCase().replace(/^\./, '');
+        
+        const link = d.link || d.webViewLink || d.document_url || d.file || d.document || '';
+        const finalLink = link ? (link.startsWith('http') ? link : `${API_BASE}${link}`) : '';
+
+        return {
+          id: String(d.id),
+          title: d.title || d.name || 'Untitled Document',
+          category: d.category || 'OPERATIONAL',
+          content: d.content || d.description || '',
+          type: rawType,
+          status: d.status || d.visibility || 'UNLOCKED',
+          lastModified: d.updated_at || d.created_at || new Date().toISOString(),
+          parentId: d.folder_id ? String(d.folder_id) : (d.parent_id ? String(d.parent_id) : null),
+          trackChanges: [],
+          fileMeta: (d.doc_type === 'file' || (d.content && typeof d.content === 'string' && d.content.startsWith('data:'))) ? { size: d.file_size || 0, mimeType: d.mime_type || 'application/octet-stream' } : undefined,
+          link: finalLink,
+          webViewLink: finalLink,
+          documentSource: d.document_source || d.documentSource || ''
+        };
+      });
+      
+      const currentDocs = get().documents;
+      const localDocs = currentDocs.filter(d => 
+        String(d.id).startsWith('fld-') || 
+        String(d.id).startsWith('doc-') || 
+        String(d.id).startsWith('file-') || 
+        String(d.id).startsWith('folder_')
+      );
+      
+      set({ documents: [...localDocs, ...mapped] });
     } catch(e) { console.error('fetchDocs error', e); }
   },
-    clearMessages: () => set({ messages: [] }),
+  clearMessages: () => set({ messages: [] }),
     fetchMessages: async (contactId?: string, since?: string) => {
       try {
-        const cNum = sessionStorage.getItem('consultant_number');
+        const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
         const token = localStorage.getItem('access_token');
         if (!cNum || !token) return;
         
@@ -1019,7 +1050,7 @@ export const useConsultantStore = create<ConsultantState>()(
   fetchNotifications: async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       if (!token || !cNum) return;
       const response = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/notifications/`, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -1179,7 +1210,7 @@ export const useConsultantStore = create<ConsultantState>()(
   },
   updateProfile: async (data) => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       if (!cNum) return;
       
       const token = localStorage.getItem('access_token');
@@ -1494,9 +1525,9 @@ export const useConsultantStore = create<ConsultantState>()(
     }));
 
     try {
-      const token = localStorage.getItem('access_token');
-      const taskObj = get().tasks.find(t => t.id === taskId);
-      const targetId = taskObj?.dbId || taskId;
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+      const taskObj = get().tasks.find(t => t.id === taskId || String(t.dbId) === taskId);
+      const targetId = taskObj?.dbId || taskObj?.id || taskId;
       
       const formData = new FormData();
       formData.append('notes', notes);
@@ -1513,10 +1544,11 @@ export const useConsultantStore = create<ConsultantState>()(
       });
       
       if (!response.ok) {
-        console.error("Failed to submit deliverable to backend");
+        const errJson = await response.json().catch(() => null);
+        console.warn("Deliverable submission response:", errJson?.message || response.statusText);
       }
     } catch (e) {
-      console.error("Failed to submit task deliverable", e);
+      console.warn("Task deliverable submission network error:", e);
     }
 
     const taskObj = get().tasks.find(t => t.id === taskId);
@@ -1545,22 +1577,40 @@ export const useConsultantStore = create<ConsultantState>()(
       documents: state.documents.map(d => d.id === docId ? { ...d, trackChanges: [] } : d)
     }));
   },
-  updateDocumentContent: (docId, newTitle, newContent) => {
-    set(state => ({
-      documents: state.documents.map(d => 
-        d.id === docId ? { 
-          ...d, 
-          title: newTitle, 
-          content: newContent, 
-          lastModified: new Date().toISOString() 
-        } : d
-      )
-    }));
+  updateDocumentContent: async (docId, newTitle, newContent) => {
+    try {
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+      
+      if (cNum && token) {
+        // Optimistic update
+        set(state => ({
+          documents: state.documents.map(d => 
+            String(d.id) === String(docId) ? { 
+              ...d, 
+              title: newTitle, 
+              content: newContent, 
+              lastModified: new Date().toISOString() 
+            } : d
+          )
+        }));
+        
+        await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/${docId}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title: newTitle,
+            content: newContent
+          })
+        });
+      }
+    } catch(e) { console.error('updateDocument error', e); }
   },
+
   createFolder: async (title, parentId) => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
-      const token = localStorage.getItem('access_token');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
       if (cNum && token) {
         const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
           method: 'POST',
@@ -1575,78 +1625,126 @@ export const useConsultantStore = create<ConsultantState>()(
         });
         if (res.ok) {
           await get().fetchDocuments();
-          return;
         }
       }
     } catch(e) { console.error('createFolder error', e); }
-    set(state => ({
-      documents: [
-        {
-          id: `fld-${Date.now()}`,
-          title,
-          category: 'OPERATIONAL',
-          content: '',
-          type: 'folder',
-          status: 'UNLOCKED',
-          lastModified: new Date().toISOString(),
-          trackChanges: [],
-          parentId
-        },
-        ...state.documents
-      ]
-    }));
+    
+    // Ensure item exists in state, otherwise add optimistic mock
+    const exists = get().documents.some(d => d.title === title && d.type === 'folder');
+    if (!exists) {
+      set(state => ({
+        documents: [
+          {
+            id: `fld-${Date.now()}`,
+            title,
+            category: 'OPERATIONAL',
+            content: '',
+            type: 'folder',
+            status: 'UNLOCKED',
+            lastModified: new Date().toISOString(),
+            trackChanges: [],
+            parentId: parentId || null
+          },
+          ...state.documents
+        ]
+      }));
+    }
   },
   createDocument: async (type, title, parentId) => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
-      const token = localStorage.getItem('access_token');
-      if (!cNum || !token) return;
-      
-      const content = type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '';
-      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          title,
-          doc_type: type,
-          category: 'TECHNICAL',
-          content,
-          parent_id: parentId || null
-        })
-      });
-      if (res.ok) {
-        get().fetchDocuments();
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+      if (cNum && token) {
+        const content = type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '';
+        const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title,
+            doc_type: type,
+            category: 'TECHNICAL',
+            content,
+            parent_id: parentId || null
+          })
+        });
+        if (res.ok) {
+          await get().fetchDocuments();
+        }
       }
     } catch(e) { console.error('createDoc error', e); }
+    
+    // Ensure item exists in state, otherwise add optimistic mock
+    const exists = get().documents.some(d => d.title === title && d.type === type);
+    if (!exists) {
+      set(state => ({
+        documents: [
+          {
+            id: `doc-${Date.now()}`,
+            title,
+            category: 'TECHNICAL',
+            content: type === 'sheet' ? '[{"name":"Sheet1","data":[[]]}]' : '',
+            type,
+            status: 'UNLOCKED',
+            lastModified: new Date().toISOString(),
+            trackChanges: [],
+            parentId: parentId || null
+          },
+          ...state.documents
+        ]
+      }));
+    }
   },
   uploadFileToVault: async (fileObj, parentId) => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
-      const token = localStorage.getItem('access_token');
-      if (!cNum || !token) return;
-      
-      const formData = new FormData();
-      if (fileObj.file) {
-          formData.append('file', fileObj.file);
-      }
-      formData.append('title', fileObj.name);
-      formData.append('doc_type', 'file');
-      formData.append('category', 'OPERATIONAL');
-      formData.append('mime_type', fileObj.type || '');
-      formData.append('file_size', String(fileObj.size || 0));
-      if (parentId) {
-          formData.append('parent_id', parentId);
-      }
-      
-      const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }, // Removed Content-Type so browser sets it automatically with boundary for FormData
-        body: formData
-      });
-      if (res.ok) {
-        get().fetchDocuments();
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+      if (cNum && token) {
+        const formData = new FormData();
+        if (fileObj.file) {
+            formData.append('file', fileObj.file);
+        }
+        formData.append('title', fileObj.name);
+        formData.append('doc_type', 'file');
+        formData.append('category', 'OPERATIONAL');
+        formData.append('mime_type', fileObj.type || '');
+        formData.append('file_size', String(fileObj.size || 0));
+        if (parentId) {
+            formData.append('parent_id', parentId);
+        }
+        
+        const res = await apiFetch(`${API_BASE}/api/v1/consultants/${cNum}/documents/`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }, // Removed Content-Type so browser sets it automatically with boundary for FormData
+          body: formData
+        });
+        if (res.ok) {
+          await get().fetchDocuments();
+        }
       }
     } catch(e) { console.error('uploadFile error', e); }
+    
+    // Ensure item exists in state, otherwise add optimistic mock
+    const exists = get().documents.some(d => d.title === fileObj.name);
+    if (!exists) {
+      const rawType = fileObj.name.split('.').pop() || 'file';
+      set(state => ({
+        documents: [
+          {
+            id: `file-${Date.now()}`,
+            title: fileObj.name,
+            category: 'OPERATIONAL',
+            content: fileObj.content || '',
+            type: rawType,
+            status: 'UNLOCKED',
+            lastModified: new Date().toISOString(),
+            trackChanges: [],
+            parentId: parentId || null,
+            fileMeta: { size: fileObj.size || 0, mimeType: fileObj.type || 'application/octet-stream' }
+          },
+          ...state.documents
+        ]
+      }));
+    }
   },
 
   // Chat Secure Messaging
@@ -1662,7 +1760,7 @@ export const useConsultantStore = create<ConsultantState>()(
     }));
     
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
@@ -1687,7 +1785,7 @@ export const useConsultantStore = create<ConsultantState>()(
   pmDirectory: [],
   fetchPmDirectory: async () => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
@@ -1706,7 +1804,7 @@ export const useConsultantStore = create<ConsultantState>()(
   meetings: [],
   fetchMeetings: async () => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
       
@@ -1741,7 +1839,7 @@ export const useConsultantStore = create<ConsultantState>()(
   
   bookMeeting: async (title, date, timeSlot, pmId) => {
     try {
-      const cNum = sessionStorage.getItem('consultant_number');
+      const cNum = sessionStorage.getItem('consultant_number') || localStorage.getItem('consultant_number') || get().profileData?.consultant_number;
       const token = localStorage.getItem('access_token');
       if (!cNum || !token) return;
 

@@ -267,9 +267,12 @@ export default function TasksTab() {
 
   const getColumnTasks = (colId: string) => {
     if (colId === 'NOT_STARTED') {
-      return tasks.filter(t => t.status === 'NOT_STARTED' || t.status === 'ASSIGNED');
+      return tasks.filter(t => {
+        const s = (t.status || '').toUpperCase();
+        return s === 'NOT_STARTED' || s === 'ASSIGNED' || s === 'NOT STARTED' || s === 'DRAFT';
+      });
     }
-    return tasks.filter(t => t.status === colId);
+    return tasks.filter(t => (t.status || '').toUpperCase() === colId.toUpperCase());
   };
 
   return (
