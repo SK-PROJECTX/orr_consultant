@@ -45,6 +45,7 @@ export type OpportunityStage =
   | 'ASSIGNMENT_DECLINED'
   | 'CONFLICT_REVIEW_REQUIRED'
   | 'ACCESS_ACTIVATION'
+  | 'ACCESS_ACTIVATED'
   | 'EXPRESSION_OF_INTEREST'
   | 'NOT_RESPONDED'
   | 'SELECTION'
@@ -410,6 +411,8 @@ export interface Opportunity {
   title: string;
   description: string;
   serviceCategory?: string;
+  urgency?: string;
+  isExternal?: boolean;
   requiredExpertise?: string[];
   expectedRole?: string;
   expectedDeliverable?: string;
@@ -1097,17 +1100,44 @@ export const useConsultantStore = create<ConsultantState>()(
         } else if (payload && Array.isArray(payload.results)) {
           opts = payload.results;
         }
+
+        // Maps backend response_status → { stage, statusText } for display
+        const statusMap: Record<string, { stage: OpportunityStage; statusText: string }> = {
+          invited:                   { stage: 'INVITED',                 statusText: 'Invited' },
+          viewed:                    { stage: 'VIEWED',                  statusText: 'Viewed' },
+          interested:                { stage: 'INTERESTED',              statusText: 'Interested' },
+          clarification_requested:   { stage: 'CLARIFICATION_REQUESTED', statusText: 'Clarification Requested' },
+          declined:                  { stage: 'DECLINED',                statusText: 'Declined' },
+          shortlisted:               { stage: 'SHORTLISTED',             statusText: 'Shortlisted' },
+          not_shortlisted:           { stage: 'NOT_SHORTLISTED',         statusText: 'Not Shortlisted' },
+          selected:                  { stage: 'SELECTED',                statusText: 'Selected' },
+          assignment_offered:        { stage: 'ASSIGNMENT_OFFERED',      statusText: 'Assignment Offered' },
+          assignment_accepted:       { stage: 'ASSIGNMENT_ACCEPTED',     statusText: 'Assignment Accepted' },
+          assignment_declined:       { stage: 'ASSIGNMENT_DECLINED',     statusText: 'Assignment Declined' },
+          conflict_review_required:  { stage: 'CONFLICT_REVIEW_REQUIRED',statusText: 'Conflict Review Required' },
+          access_activated:          { stage: 'ACCESS_ACTIVATED',        statusText: 'access activated' },
+        };
         
-        const mappedOpts = opts.map((o: any) => ({
-          id: String(o.id), // Use pk for API calls
-          title: o.project_title || 'Untitled Opportunity',
-          description: `Urgency: ${o.urgency || 'Normal'}\nService Category: ${o.service_category || 'N/A'}\nExternal: ${o.is_external_consultant ? 'Yes' : 'No'}`,
-          serviceCategory: o.service_category,
-          indicativeDeadline: o.deadline,
-          stage: o.response_status?.toUpperCase() || 'EXPRESSION_OF_INTEREST',
-          statusText: o.response_status?.replace(/_/g, ' ') || 'New',
-          dateAssigned: o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A',
-        }));
+        const mappedOpts = opts.map((o: any) => {
+          const rawStatus = (o.response_status || '').toLowerCase();
+          const mapped = statusMap[rawStatus] ?? {
+            stage: (rawStatus.toUpperCase() as OpportunityStage) || 'EXPRESSION_OF_INTEREST',
+            statusText: rawStatus.replace(/_/g, ' ') || 'New',
+          };
+          return {
+            id: String(o.id),
+            title: o.project_title || 'Untitled Opportunity',
+            description: `Urgency: ${o.urgency || 'normal'}\nService Category: ${o.service_category || 'N/A'}\nExternal: ${o.is_external_consultant ? 'Yes' : 'No'}`,
+            serviceCategory: o.service_category,
+            urgency: o.urgency,
+            isExternal: !!o.is_external_consultant,
+            indicativeDeadline: o.deadline,
+            stage: mapped.stage,
+            statusText: mapped.statusText,
+            dateAssigned: o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A',
+            lastUpdated: o.updated_at || o.created_at,
+          };
+        });
         
         set({ opportunities: mappedOpts });
       }
