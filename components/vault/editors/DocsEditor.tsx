@@ -483,7 +483,7 @@ export default function DocsEditor({ content, onChange, title, onTitleChange }: 
    const [isParsingWord, setIsParsingWord] = useState(false);
    const [parsedContent, setParsedContent] = useState<string | null>(null);
    const previewRef = useRef<HTMLDivElement>(null);
-   const isDocxFile = content?.startsWith('data:') && (content.includes('wordprocessingml') || title?.toLowerCase().endsWith('.docx') || title?.toLowerCase().endsWith('.doc'));
+   const isDocxFile = (content?.startsWith('data:') || content?.startsWith('http') || content?.startsWith('/')) && (content.includes('wordprocessingml') || title?.toLowerCase().endsWith('.docx') || title?.toLowerCase().endsWith('.doc'));
 
    const formatDocContent = (raw?: string) => {
       if (parsedContent) return parsedContent;
@@ -537,24 +537,15 @@ export default function DocsEditor({ content, onChange, title, onTitleChange }: 
        const container = previewRef.current;
        if (isDocxFile && container) {
            setIsParsingWord(true);
-           try {
-               const bstr = atob(content.split(',')[1]);
-               let n = bstr.length;
-               const u8arr = new Uint8Array(n);
-               while(n--){
-                   u8arr[n] = bstr.charCodeAt(n);
-               }
-               
+           const renderDocx = (buffer: ArrayBuffer) => {
                // @ts-ignore
                import('docx-preview').then((docx) => {
-                   docx.renderAsync(u8arr.buffer, container, undefined, {
+                   docx.renderAsync(buffer, container, undefined, {
                       className: 'docx-preview',
                       inWrapper: true,
                       ignoreWidth: false,
                       ignoreHeight: false,
-                   }).then(() => {
-                       setIsParsingWord(false);
-                   }).catch((err: any) => {
+                   }).then(() => setIsParsingWord(false)).catch((err: any) => {
                        console.error("Failed to render Word document", err);
                        setIsParsingWord(false);
                    });
@@ -562,6 +553,26 @@ export default function DocsEditor({ content, onChange, title, onTitleChange }: 
                   console.error("Failed to load docx-preview", err);
                   setIsParsingWord(false);
                });
+           };
+
+           try {
+               if (content.startsWith('data:')) {
+                   const bstr = atob(content.split(',')[1]);
+                   let n = bstr.length;
+                   const u8arr = new Uint8Array(n);
+                   while(n--){
+                       u8arr[n] = bstr.charCodeAt(n);
+                   }
+                   renderDocx(u8arr.buffer);
+               } else {
+                   fetch(content)
+                       .then(res => res.arrayBuffer())
+                       .then(buf => renderDocx(buf))
+                       .catch(err => {
+                           console.error("Failed to fetch docx file", err);
+                           setIsParsingWord(false);
+                       });
+               }
            } catch (err) {
                console.error(err);
                setIsParsingWord(false);

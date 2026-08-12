@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useConsultantStore, Invoice } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { SkeletonStatCards, SkeletonList } from '@/components/ui/SkeletonPresets';
 import { 
   Wallet, 
   UploadCloud, 
@@ -47,7 +48,16 @@ export default function WalletTab() {
   }, []);
 
   if (!isMounted) {
-    return <LoadingSpinner label="Loading Wallet..." sublabel="Fetching ledger balance & payment transactions" />;
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <SkeletonStatCards count={3} className="md:grid-cols-3" />
+        <SkeletonList rows={4} />
+      </div>
+    );
   }
 
   // Completed or active billable tasks list

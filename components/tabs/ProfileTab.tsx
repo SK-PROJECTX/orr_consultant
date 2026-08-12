@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { useConsultantStore, ProfileData } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
 import { User, Briefcase, Award, Calendar, Save, X, Globe, Phone, Mail, Link as LinkIcon, Camera, MapPin, Building2, BookOpen, Clock, Tag, ChevronDown, CheckSquare, Plus } from 'lucide-react';
 
 type Tab = 'personal' | 'professional' | 'skills' | 'availability';
@@ -32,7 +32,30 @@ export default function ProfileTab() {
   }, [fetchProfile]);
 
   if (!isMounted) {
-    return <LoadingSpinner label="Loading Profile..." sublabel="Fetching specialist credentials and configuration" />;
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300 max-w-5xl mx-auto">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-32 rounded-xl" />
+          ))}
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col gap-6">
+          <Skeleton className="h-5 w-40" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

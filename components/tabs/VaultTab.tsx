@@ -3,7 +3,8 @@
 import React, { useState, useRef } from 'react';
 import { useConsultantStore, VaultDocument } from '@/store/consultantStore';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { SkeletonCardGrid } from '@/components/ui/SkeletonPresets';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, Search, FileText, Grid3X3, Presentation, 
@@ -62,7 +63,18 @@ export default function VaultTab() {
   }, [view]);
 
   if (!isMounted || isLoadingData) {
-    return <LoadingSpinner label="Loading Vault..." sublabel="Securing encrypted document workspace" />;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <SkeletonCardGrid
+          count={10}
+          className="sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        />
+      </div>
+    );
   }
 
   // TEMPORARY: Bypass lock feature to preview document vault UI
