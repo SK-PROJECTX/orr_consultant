@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useConsultantStore } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
 import {
   Send,
   User,
@@ -15,8 +15,7 @@ import {
   X,
   File,
   Sparkles,
-  Bot,
-  Loader2
+  Bot
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
@@ -56,8 +55,15 @@ export default function ChatTab() {
       setIsDirLoading(false);
       return;
     }
+    const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://orr-backend-105825824472.asia-southeast2.run.app';
+    
     setIsDirLoading(true);
-    fetch(`https://orr-backend-105825824472.asia-southeast2.run.app/api/v1/consultants/${cNum}/messages/directory/`)
+    fetch(`${API_BASE}/api/v1/consultants/${cNum}/messages/directory/`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(resData => {
         let data = resData;
@@ -121,28 +127,51 @@ export default function ChatTab() {
   }, [messages]);
 
   if (!isMounted) {
-    return <LoadingSpinner label="Loading Messaging..." sublabel="Connecting to secure communication channel" />;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="flex h-[600px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+          {/* Directory sidebar */}
+          <div className="hidden md:flex w-64 shrink-0 flex-col gap-4 border-r border-white/10 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+          {/* Message column */}
+          <div className="flex flex-1 flex-col">
+            <div className="flex flex-col gap-2 border-b border-white/10 p-4">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="flex flex-1 flex-col gap-6 p-6">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                  <Skeleton className={`h-16 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2'}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() && !attachment) return;
 
-    const optimisticMsg = {
-      id: `temp-${Date.now()}`,
-      sender: 'CONSULTANT' as const,
-      text: inputText.trim(),
-      timestamp: new Date().toISOString(),
-      attachment: attachment ? { name: attachment.name, url: attachment.url, type: attachment.type } : undefined
-    };
-    
-    useConsultantStore.setState(state => ({ messages: [...state.messages, optimisticMsg] }));
+    // Removed duplicate optimistic update, it is handled in the store
 
     try {
       sendChatMessage(inputText.trim(), attachment || undefined, activeContact);
     } catch (e) {
       console.error("Failed to send", e);
-      useConsultantStore.setState(state => ({ messages: state.messages.filter(m => m.id !== optimisticMsg.id) }));
     }
     
     setInputText('');
@@ -198,9 +227,13 @@ export default function ChatTab() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {isDirLoading ? (
-              <div className="flex flex-col items-center justify-center p-8 gap-3 h-32 text-slate-400">
-                <Loader2 className="animate-spin text-primary w-6 h-6" />
-                <span className="text-xs font-mono">Syncing directory...</span>
+              <div className="p-4 flex flex-col gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                ))}
               </div>
             ) : directory.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500 font-mono">
@@ -242,9 +275,12 @@ export default function ChatTab() {
           {/* Active message list */}
           <div className="flex-1 p-6 overflow-y-auto space-y-6 relative">
             {isMessagesLoading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-400 bg-slate-950/20 backdrop-blur-[2px] z-20">
-                <Loader2 className="animate-spin text-primary w-8 h-8" />
-                <span className="text-xs font-mono">Syncing secure channel feeds...</span>
+              <div className="flex flex-col gap-6">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                    <Skeleton className={`h-16 rounded-2xl ${i % 2 === 0 ? 'w-2/3' : 'w-1/2'}`} />
+                  </div>
+                ))}
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2 select-none py-12">

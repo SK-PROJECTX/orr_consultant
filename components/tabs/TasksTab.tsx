@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useConsultantStore, Task } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { SkeletonCardGrid } from '@/components/ui/SkeletonPresets';
 import {
   Clock,
   AlertCircle,
@@ -12,7 +13,8 @@ import {
   GripHorizontal,
   ChevronRight,
   X,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { 
@@ -74,6 +76,7 @@ const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, icon, task
 
 const SortableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitClick?: () => void, onViewClick?: () => void }> = ({ task, isOverlay, onSubmitClick, onViewClick }) => {
   const { t } = useTranslation();
+  const updatingTaskId = useConsultantStore(state => state.updatingTaskId);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -102,11 +105,18 @@ const SortableTaskCard: React.FC<{ task: Task, isOverlay?: boolean, onSubmitClic
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-grab active:cursor-grabbing hover:bg-white/5'}`}
+      className={`bg-card/70 border border-white/5 hover:border-white/15 transition-all p-4 rounded-2xl flex flex-col gap-3 relative shadow-lg ${isOverlay ? 'scale-105 shadow-primary/20 cursor-grabbing' : 'cursor-grab active:cursor-grabbing hover:bg-white/5'} ${updatingTaskId === task.id ? 'overflow-hidden' : ''}`}
       onClick={() => onViewClick?.()}
       {...attributes}
       {...listeners}
     >
+      {updatingTaskId === task.id && (
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] rounded-2xl z-10 flex flex-col items-center justify-center pointer-events-none">
+          <Loader2 className="w-5 h-5 animate-spin text-primary mb-2" />
+          <span className="text-[10px] font-bold text-white tracking-widest uppercase animate-pulse">Changing Status</span>
+        </div>
+      )}
+      
       {task.status === 'IN_PROGRESS' && (
         <div className="absolute top-0 left-0 w-1 h-full bg-blue-400" />
       )}
@@ -157,6 +167,7 @@ export default function TasksTab() {
   const fetchTasks = useConsultantStore(state => state.fetchTasks);
   const updateTaskStatus = useConsultantStore(state => state.updateTaskStatus);
   const submitTaskDeliverable = useConsultantStore(state => state.submitTaskDeliverable);
+  const isTasksLoading = useConsultantStore(state => state.isTasksLoading);
 
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -191,8 +202,16 @@ export default function TasksTab() {
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
-  if (!isMounted) {
-    return <LoadingSpinner label="Loading Tasks..." sublabel="Fetching active deliverables and Kanban board" />;
+  if (!isMounted || (isTasksLoading && tasks.length === 0)) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <SkeletonCardGrid count={6} />
+      </div>
+    );
   }
 
   const handleDragOver = (e: React.DragEvent) => {

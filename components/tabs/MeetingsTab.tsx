@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useConsultantStore } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { SkeletonList } from '@/components/ui/SkeletonPresets';
 import { 
   Calendar, 
   Clock, 
@@ -37,7 +38,15 @@ export default function MeetingsTab() {
   }, [fetchMeetings, fetchPmDirectory]);
 
   if (!isMounted) {
-    return <LoadingSpinner label="Loading Meetings..." sublabel="Fetching schedule and session availability" />;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </div>
+        <SkeletonList rows={5} />
+      </div>
+    );
   }
 
   const timeSlots = [

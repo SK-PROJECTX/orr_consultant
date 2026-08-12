@@ -74,7 +74,13 @@ export default function WorkspaceShell({
                         exit={{ opacity: 0 }}
                         className="flex-1 flex flex-col overflow-hidden"
                      >
-                        {((activeDocument.link || activeDocument.webViewLink) && !isMock) || (activeDocument.type === 'file' || (activeDocument.content && activeDocument.content.startsWith('data:'))) ? (
+                        {(() => {
+                           const isPreviewableFile = activeDocument.type === 'pdf' || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pptx', 'ppt'].includes(activeDocument.type);
+                           const isGoogleNative = activeDocument.documentSource?.startsWith('google_') || ((activeDocument.link || activeDocument.webViewLink) && (activeDocument.link?.includes('docs.google.com') || activeDocument.webViewLink?.includes('docs.google.com')));
+                           const isGenericFile = activeDocument.type === 'file' && !['docx', 'doc', 'xlsx', 'xls'].includes(activeDocument.title?.split('.').pop()?.toLowerCase() || '');
+                           const usePreviewPane = isGoogleNative || isPreviewableFile || isGenericFile || (!isMock && activeDocument.type === 'file');
+                           
+                           return usePreviewPane ? (
                            <div className="flex-1 bg-card flex flex-col relative">
                               <div className="h-10 border-b border-white/10 flex items-center justify-between px-6 bg-white/[0.02]">
                                  <div className="flex items-center gap-3">
@@ -100,44 +106,48 @@ export default function WorkspaceShell({
                                  const link = activeDocument.link || activeDocument.webViewLink;
                                  const isDataUrl = activeDocument.content?.startsWith('data:');
                                  const isPdf = activeDocument.type === 'pdf' || activeDocument.content?.startsWith('data:application/pdf') || activeDocument.title?.toLowerCase().endsWith('.pdf');
-                                 const isImage = activeDocument.content?.startsWith('data:image/');
+                                 const isImage = activeDocument.content?.startsWith('data:image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(activeDocument.type);
                                  
-                                 if (isDataUrl) {
-                                    if (isPdf) {
-                                       return (
-                                          <iframe src={activeDocument.content} className="flex-1 w-full border-none bg-slate-900" title={activeDocument.title} />
-                                       );
-                                    } else if (isImage) {
-                                       return (
-                                          <div className="flex-1 flex items-center justify-center bg-slate-900/50 p-4">
-                                             <img src={activeDocument.content} alt={activeDocument.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                                 // Render image viewer
+                                 if (isImage) {
+                                    return (
+                                       <div className="flex-1 flex items-center justify-center bg-slate-900/50 p-4">
+                                          <img src={activeDocument.content} alt={activeDocument.title} className="max-w-full max-h-full object-contain rounded-lg" />
+                                       </div>
+                                    );
+                                 }
+
+                                 // Render PDF directly
+                                 if (isPdf && (isDataUrl || link)) {
+                                    return (
+                                       <iframe src={isDataUrl ? activeDocument.content : link} className="flex-1 w-full border-none bg-slate-900" title={activeDocument.title} />
+                                    );
+                                 }
+
+                                 if (isDataUrl && !link) {
+                                    // Fallback for Office documents as data URLs (can't be iframed without a public URL)
+                                    return (
+                                       <div className="flex-1 flex flex-col items-center justify-center bg-card text-center p-8 space-y-4">
+                                          <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 shadow-sm">
+                                             <FileText size={32} />
                                           </div>
-                                       );
-                                    } else if (!link) {
-                                       // Fallback for Office documents as data URLs (can't be iframed without a public URL)
-                                       return (
-                                          <div className="flex-1 flex flex-col items-center justify-center bg-card text-center p-8 space-y-4">
-                                             <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 shadow-sm">
-                                                <FileText size={32} />
-                                             </div>
-                                             <h3 className="text-xl font-bold text-white">{activeDocument.title}</h3>
-                                             <p className="text-slate-400 text-sm max-w-md">Office Preview requires a public link. Click below to download and view this file.</p>
-                                             <button 
-                                                onClick={() => {
-                                                   const a = document.createElement('a');
-                                                   a.href = activeDocument.content;
-                                                   a.download = activeDocument.title;
-                                                   document.body.appendChild(a);
-                                                   a.click();
-                                                   document.body.removeChild(a);
-                                                }}
-                                                className="px-6 py-2.5 bg-primary text-slate-900 font-bold rounded-xl hover:bg-lemon transition-colors"
-                                             >
-                                                Download File
-                                             </button>
-                                          </div>
-                                       );
-                                    }
+                                          <h3 className="text-xl font-bold text-white">{activeDocument.title}</h3>
+                                          <p className="text-slate-400 text-sm max-w-md">Office Preview requires a public link. Click below to download and view this file.</p>
+                                          <button 
+                                             onClick={() => {
+                                                const a = document.createElement('a');
+                                                a.href = activeDocument.content;
+                                                a.download = activeDocument.title;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                             }}
+                                             className="px-6 py-2.5 bg-primary text-slate-900 font-bold rounded-xl hover:bg-lemon transition-colors"
+                                          >
+                                             Download File
+                                          </button>
+                                       </div>
+                                    );
                                  }
                                  
                                  // Original Link Logic
@@ -146,14 +156,37 @@ export default function WorkspaceShell({
                                  if (activeDocument.type === 'pdf') return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
                                  if (isGoogleNative) return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
                                  if (['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(activeDocument.type)) {
-                                    return <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(link)}&embedded=true`} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
+                                    if (link.includes('localhost') || link.includes('127.0.0.1')) {
+                                       return (
+                                          <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 border-none w-full h-full p-8 text-center">
+                                             <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 shadow-sm mb-4">
+                                                <FileText size={32} />
+                                             </div>
+                                             <h3 className="text-xl font-bold text-white mb-2">{activeDocument.title}</h3>
+                                             <p className="text-slate-400 text-sm max-w-md text-center mb-6">
+                                                Google Docs Preview requires a public URL. Since you are running on localhost, preview is disabled. Click below to download and view this file.
+                                             </p>
+                                             <a 
+                                                href={link}
+                                                download={activeDocument.title}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-6 py-3 bg-primary text-slate-900 font-bold rounded-xl hover:bg-lemon transition-colors"
+                                             >
+                                                Download to View
+                                             </a>
+                                          </div>
+                                       );
+                                    }
+                                    return <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(link)}`} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
                                  }
                                  return <iframe src={link} className="flex-1 w-full border-none bg-white" title={activeDocument.title} />;
                               })()}
                            </div>
                         ) : (
                            renderEditor()
-                        )}
+                        );
+                        })()}
                      </motion.div>
                   ) : (
                      <div className="flex-1 flex items-center justify-center bg-card">

@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Briefcase, ChevronRight, ChevronLeft, Search, Filter } from 'lucide-react';
 import OpportunityResponseForm from '@/components/opportunities/OpportunityResponseForm';
 import { useConsultantStore, OpportunityStage, Opportunity } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Skeleton from '@/components/ui/Skeleton';
+import { SkeletonCardGrid } from '@/components/ui/SkeletonPresets';
 
 export default function OpportunitiesTab() {
   const opportunities = useConsultantStore(state => state.opportunities || []);
@@ -25,7 +26,15 @@ export default function OpportunitiesTab() {
   }, [fetchOpportunities]);
 
   if (!isMounted || isLoadingData) {
-    return <LoadingSpinner label="Loading Opportunities..." sublabel="Fetching available project listings" />;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <SkeletonCardGrid count={6} className="md:grid-cols-2 xl:grid-cols-3" />
+      </div>
+    );
   }
 
   const selectedOpportunity = opportunities.find(o => o.id === selectedOptId);

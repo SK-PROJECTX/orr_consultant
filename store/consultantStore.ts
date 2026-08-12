@@ -339,6 +339,8 @@ interface ConsultantState {
 
   // Tasks
   tasks: Task[];
+  isTasksLoading: boolean;
+  updatingTaskId: string | null;
   updateTaskStatus: (taskId: string, status: Task['status']) => void;
   submitTaskDeliverable: (taskId: string, notes: string, file: any) => Promise<void>;
 
@@ -634,14 +636,14 @@ export const useConsultantStore = create<ConsultantState>()(
             }
           });
 
+          if (data.data.access) {
+            localStorage.setItem("access_token", data.data.access);
+          }
+
           // Save consultant number so the onboarding form can use it to submit
           if (data.data.user.consultant_number) {
             sessionStorage.setItem("consultant_number", data.data.user.consultant_number);
             get().fetchProfile();
-          }
-
-          if (data.data.access) {
-            localStorage.setItem("access_token", data.data.access);
           }
 
           return true;
@@ -698,14 +700,14 @@ export const useConsultantStore = create<ConsultantState>()(
           }
         });
         
+        localStorage.setItem("access_token", data.access || tempToken || "");
+        sessionStorage.removeItem("temp_access_token");
+        sessionStorage.removeItem("temp_user_data");
+
         if (user?.consultant_number) {
           sessionStorage.setItem("consultant_number", user.consultant_number);
           get().fetchProfile();
         }
-        
-        localStorage.setItem("access_token", data.access || tempToken || "");
-        sessionStorage.removeItem("temp_access_token");
-        sessionStorage.removeItem("temp_user_data");
 
         get().addNotification(
           'Specialist Authorization Granted',
@@ -864,7 +866,105 @@ export const useConsultantStore = create<ConsultantState>()(
       console.error('Failed to fetch active jobs:', err);
     }
   },
+  // Tasks
+  tasks: INITIAL_TASKS,
+  isTasksLoading: true,
+  updatingTaskId: null,
+  updateTaskStatus: async (taskId, status) => {
+    set({ updatingTaskId: taskId });
+    try {
+      const token = localStorage.getItem('access_token');
+      const taskObj = get().tasks.find(t => t.id === taskId);
+      const targetId = taskObj?.dbId || taskId;
+      
+      let backendStatus = 'not_started';
+      if (status === 'IN_PROGRESS') backendStatus = 'in_progress';
+      else if (status === 'UNDER_REVIEW') backendStatus = 'submitted_for_review';
+      else if (status === 'COMPLETED') backendStatus = 'completed';
+      else if (status === 'BLOCKED') backendStatus = 'blocked';
+
+      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ status: backendStatus })
+      });
+      
+      if (response.ok) {
+        set(state => ({
+          tasks: state.tasks.map(t => t.id === taskId ? { ...t, status } : t)
+        }));
+        await get().fetchTasks();
+      } else {
+        console.error("Failed to update task status on backend");
+      }
+    } catch (e) {
+      console.error("Error updating task status", e);
+    } finally {
+      set({ updatingTaskId: null });
+    }
+  },  submitTaskDeliverable: async (taskId, notes, file) => {
+    set({ updatingTaskId: taskId });
+    // Optimistic update
+    set(state => ({
+      tasks: state.tasks.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            status: 'UNDER_REVIEW',
+            deliverableSubmitted: {
+              submittedAt: new Date().toISOString(),
+              notes,
+              fileName: file?.name || 'Deliverable'
+            }
+          };
+        }
+        return t;
+      })
+    }));
+
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
+      const taskObj = get().tasks.find(t => t.id === taskId || String(t.dbId) === taskId);
+      const targetId = taskObj?.dbId || taskObj?.id || taskId;
+      
+      const formData = new FormData();
+      formData.append('notes', notes);
+      if (file) {
+        formData.append('deliverable_file', file);
+      }
+
+      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/submit-review/`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        console.warn("Deliverable submission response:", errJson?.message || response.statusText);
+      } else {
+        await get().fetchTasks();
+      }
+    } catch (e) {
+      console.warn("Task deliverable submission network error:", e);
+    }
+
+    const updatedTaskObj = get().tasks.find(t => t.id === taskId);
+
+    get().addNotification(
+      'Deliverable Package Submitted',
+      `Deliverable archive for "${updatedTaskObj?.title || taskId}" has been uploaded.`,
+      'SYSTEM'
+    );
+    set({ updatingTaskId: null });
+  },
   fetchTasks: async () => {
+    set({ isTasksLoading: true });
     try {
       const token = localStorage.getItem('access_token');
       const response = await apiFetch(`${API_BASE}/pm/v1/consultant/tasks/`, {
@@ -887,11 +987,16 @@ export const useConsultantStore = create<ConsultantState>()(
                     (t.status === 'blocked' || t.status === 'BLOCKED') ? 'BLOCKED' : 
                     'NOT_STARTED'
           }));
-          set({ tasks: mappedTasks });
+          set({ tasks: mappedTasks, isTasksLoading: false });
+        } else {
+          set({ isTasksLoading: false });
         }
+      } else {
+        set({ isTasksLoading: false });
       }
     } catch (err) {
       console.error('Failed to fetch tasks:', err);
+      set({ isTasksLoading: false });
     }
   },
   fetchInvoices: async () => {
@@ -982,7 +1087,7 @@ export const useConsultantStore = create<ConsultantState>()(
           id: String(d.id),
           title: d.title || d.name || 'Untitled Document',
           category: d.category || 'OPERATIONAL',
-          content: d.content || d.description || '',
+          content: d.content || finalLink || d.description || '',
           type: rawType,
           status: d.status || d.visibility || 'UNLOCKED',
           lastModified: d.updated_at || d.created_at || new Date().toISOString(),
@@ -1024,8 +1129,16 @@ export const useConsultantStore = create<ConsultantState>()(
         });
       if (res.ok) {
         const json = await res.json();
-        if (json.data) {
-          const arr = Array.isArray(json.data) ? json.data : (json.data.data || []);
+        let arr = [];
+        if (json) {
+          if (Array.isArray(json)) arr = json;
+          else if (Array.isArray(json.data)) arr = json.data;
+          else if (json.data && Array.isArray(json.data.data)) arr = json.data.data;
+          else if (json.data && Array.isArray(json.data.results)) arr = json.data.results;
+          else if (Array.isArray(json.results)) arr = json.results;
+        }
+        
+        if (arr.length >= 0) {
           const mapped = arr.map((m: any) => ({
             id: String(m.id),
             text: m.text,
@@ -1501,94 +1614,7 @@ export const useConsultantStore = create<ConsultantState>()(
     );
   },
 
-  // Tasks
-  tasks: INITIAL_TASKS,
-  updateTaskStatus: async (taskId, status) => {
-    // Optimistic UI update
-    set(state => ({
-      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status } : t)
-    }));
 
-    try {
-      const token = localStorage.getItem('access_token');
-      const taskObj = get().tasks.find(t => t.id === taskId);
-      const targetId = taskObj?.dbId || taskId;
-      
-      let backendStatus = 'not_started';
-      if (status === 'IN_PROGRESS') backendStatus = 'in_progress';
-      else if (status === 'UNDER_REVIEW') backendStatus = 'submitted_for_review';
-      else if (status === 'COMPLETED') backendStatus = 'completed';
-      else if (status === 'BLOCKED') backendStatus = 'blocked';
-
-      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ status: backendStatus })
-      });
-      
-      if (!response.ok) {
-        console.error("Failed to update task status on backend");
-      }
-    } catch (e) {
-      console.error("Error updating task status", e);
-    }
-  },  submitTaskDeliverable: async (taskId, notes, file) => {
-    // Optimistic update
-    set(state => ({
-      tasks: state.tasks.map(t => {
-        if (t.id === taskId) {
-          return {
-            ...t,
-            status: 'UNDER_REVIEW',
-            deliverableSubmitted: {
-              submittedAt: new Date().toISOString(),
-              notes,
-              fileName: file?.name || 'Deliverable'
-            }
-          };
-        }
-        return t;
-      })
-    }));
-
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('auth-token');
-      const taskObj = get().tasks.find(t => t.id === taskId || String(t.dbId) === taskId);
-      const targetId = taskObj?.dbId || taskObj?.id || taskId;
-      
-      const formData = new FormData();
-      formData.append('notes', notes);
-      if (file) {
-        formData.append('deliverable_file', file);
-      }
-
-      const response = await apiFetch(`${API_BASE}/pm/v1/tasks/${targetId}/submit-review/`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => null);
-        console.warn("Deliverable submission response:", errJson?.message || response.statusText);
-      }
-    } catch (e) {
-      console.warn("Task deliverable submission network error:", e);
-    }
-
-    const taskObj = get().tasks.find(t => t.id === taskId);
-
-    get().addNotification(
-      'Deliverable Package Submitted',
-      `Deliverable archive for "${taskObj?.title || taskId}" has been uploaded.`,
-      'SYSTEM'
-    );
-  },
 
   // Document Vault & Track Changes Simulation
   documents: INITIAL_DOCUMENTS,
@@ -1807,7 +1833,7 @@ export const useConsultantStore = create<ConsultantState>()(
         })
       });
       if (res.ok) {
-        get().fetchMessages();
+        get().fetchMessages(contactId || undefined);
       }
     } catch(e) { console.error('sendMsg error', e); }
   },

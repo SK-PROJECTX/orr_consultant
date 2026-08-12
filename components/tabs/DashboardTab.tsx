@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useConsultantStore, JobOffer } from '@/store/consultantStore';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import { DashboardSkeleton } from '@/components/ui/SkeletonPresets';
 import { 
   ShieldAlert, 
   CheckCircle, 
@@ -51,7 +51,7 @@ export default function DashboardTab() {
   }, []);
 
   if (!isMounted) {
-    return <LoadingSpinner label="Loading Dashboard..." sublabel="Syncing metrics & assignment feeds" />;
+    return <DashboardSkeleton />;
   }
 
   return (

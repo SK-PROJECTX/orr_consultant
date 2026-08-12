@@ -71,17 +71,11 @@ export default function SheetsEditor({ content, onChange, title, onTitleChange }
     const [isParsingExcel, setIsParsingExcel] = useState(false);
 
     useEffect(() => {
-        if (content && content.startsWith('data:') && (content.includes('excel') || content.includes('spreadsheetml') || title?.toLowerCase().endsWith('.xlsx') || title?.toLowerCase().endsWith('.xls'))) {
+        const isExcelFile = (content?.startsWith('data:') || content?.startsWith('http') || content?.startsWith('/')) && (content.includes('excel') || content.includes('spreadsheetml') || title?.toLowerCase().endsWith('.xlsx') || title?.toLowerCase().endsWith('.xls'));
+        if (isExcelFile) {
             setIsParsingExcel(true);
-            try {
-                const bstr = atob(content.split(',')[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while(n--){
-                    u8arr[n] = bstr.charCodeAt(n);
-                }
-                const file = new File([u8arr], title || "file.xlsx", {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-                
+            const parseExcel = (u8arr: Uint8Array) => {
+                const file = new File([u8arr as any], title || "file.xlsx", {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
                 // @ts-ignore
                 import('luckyexcel').then((LuckyExcel) => {
                     LuckyExcel.default.transformExcelToLucky(file, (exportJson: any) => {
@@ -97,12 +91,32 @@ export default function SheetsEditor({ content, onChange, title, onTitleChange }
                         setIsParsingExcel(false);
                     });
                 });
+            };
+
+            try {
+                if (content.startsWith('data:')) {
+                    const bstr = atob(content.split(',')[1]);
+                    let n = bstr.length;
+                    const u8arr = new Uint8Array(n);
+                    while(n--){
+                        u8arr[n] = bstr.charCodeAt(n);
+                    }
+                    parseExcel(u8arr);
+                } else {
+                    fetch(content)
+                        .then(res => res.arrayBuffer())
+                        .then(buf => parseExcel(new Uint8Array(buf)))
+                        .catch(err => {
+                            console.error("Failed to fetch Excel file", err);
+                            setIsParsingExcel(false);
+                        });
+                }
             } catch (err) {
                 console.error(err);
                 setIsParsingExcel(false);
             }
         }
-    }, []);
+    }, [content, title]);
 
     const sheetRef = useRef<any>(null);
     const contentRef = useRef(content);
